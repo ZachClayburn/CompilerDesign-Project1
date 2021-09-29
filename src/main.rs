@@ -1,3 +1,5 @@
+mod scanner;
+
 use clap::{App, AppSettings, Arg};
 
 fn main() {
