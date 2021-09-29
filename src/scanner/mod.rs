@@ -3,7 +3,6 @@ use std::iter::Peekable;
 use std::vec::IntoIter;
 use std::{fs, io};
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Complex tokens
@@ -93,6 +92,7 @@ impl Iterator for Scanner {
             '+' => return Some(Ok(Token::Plus)),
             '-' => return Some(Ok(Token::Minus)),
             '*' => return Some(Ok(Token::Star)),
+            '/' => return Some(Ok(Token::Div)),
             '^' => return Some(Ok(Token::Pow)),
             ',' => return Some(Ok(Token::Comma)),
             '<' => {
@@ -121,7 +121,7 @@ impl Iterator for Scanner {
                 if next.is_none() {
                     return Some(Err(format!("Unexpected token {}, ({:#X})", '!', b'!')));
                 }
-                return Some(Ok(Token::NotEqual))
+                return Some(Ok(Token::NotEqual));
             }
             '.' => {
                 let next = self.raw_text.next_if_eq(&'.');
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn can_lex_single_symbol_tokens() {
-        let mut scan = Scanner::from_text("()[]{};+-*^,");
+        let mut scan = Scanner::from_text("()[]{};+-*/^,");
         single_token_check(scan.next(), Token::LParen);
         single_token_check(scan.next(), Token::RParen);
         single_token_check(scan.next(), Token::LBracket);
@@ -201,6 +201,7 @@ mod tests {
         single_token_check(scan.next(), Token::Plus);
         single_token_check(scan.next(), Token::Minus);
         single_token_check(scan.next(), Token::Star);
+        single_token_check(scan.next(), Token::Div);
         single_token_check(scan.next(), Token::Pow);
         single_token_check(scan.next(), Token::Comma);
         assert_eq!(scan.next(), None, "There are still left over tokens");
