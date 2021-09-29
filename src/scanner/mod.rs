@@ -78,7 +78,10 @@ impl Iterator for Scanner {
     type Item = Result<Token>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.raw_text.next()?;
+        let mut c = self.raw_text.next()?;
+        while c.is_whitespace() {
+            c = self.raw_text.next()?;
+        }
         match c {
             '(' => return Some(Ok(Token::LParen)),
             ')' => return Some(Ok(Token::RParen)),
@@ -95,7 +98,12 @@ impl Iterator for Scanner {
             '<' => return Some(Ok(Token::Less)),
             '>' => return Some(Ok(Token::Greater)),
             ',' => return Some(Ok(Token::Comma)),
-            unexpected => return Some(Err(format!("Unexpected token {}", unexpected))),
+            unexpected => {
+                return Some(Err(format!(
+                    "Unexpected token {}, ({:#X})",
+                    unexpected, unexpected as i32
+                )))
+            }
         }
     }
 }
@@ -167,5 +175,17 @@ mod tests {
         single_token_check(scan.next(), Token::Greater);
         single_token_check(scan.next(), Token::Comma);
         assert_eq!(scan.next(), None, "There are still left over tokens");
+    }
+
+    #[test]
+    fn can_skip_whitespace() {
+        let has_whitespace = ";   \t;
+        ;
+        ";
+        let mut scan = Scanner::from_text(has_whitespace);
+        assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
+        assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
+        assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
+        assert_eq!(scan.next(), None);
     }
 }
