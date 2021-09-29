@@ -48,7 +48,7 @@ pub enum Token {
     Less,
     Greater,
     LessEqual,
-    GreterEqual,
+    GreaterEqual,
     Equal,
     NotEqual,
     Dot,
@@ -90,14 +90,46 @@ impl Iterator for Scanner {
             '{' => return Some(Ok(Token::LBrace)),
             '}' => return Some(Ok(Token::RBrace)),
             ';' => return Some(Ok(Token::Semicolon)),
-            '=' => return Some(Ok(Token::Assign)),
             '+' => return Some(Ok(Token::Plus)),
             '-' => return Some(Ok(Token::Minus)),
             '*' => return Some(Ok(Token::Star)),
             '^' => return Some(Ok(Token::Pow)),
-            '<' => return Some(Ok(Token::Less)),
-            '>' => return Some(Ok(Token::Greater)),
             ',' => return Some(Ok(Token::Comma)),
+            '<' => {
+                let next = self.raw_text.next_if_eq(&'=');
+                if next.is_some() {
+                    return Some(Ok(Token::LessEqual));
+                }
+                return Some(Ok(Token::Less));
+            }
+            '>' => {
+                let next = self.raw_text.next_if_eq(&'=');
+                if next.is_some() {
+                    return Some(Ok(Token::GreaterEqual));
+                }
+                return Some(Ok(Token::Greater));
+            }
+            '=' => {
+                let next = self.raw_text.next_if_eq(&'=');
+                if next.is_some() {
+                    return Some(Ok(Token::Equal));
+                }
+                return Some(Ok(Token::Assign));
+            }
+            '!' => {
+                let next = self.raw_text.next_if_eq(&'=');
+                if next.is_none() {
+                    return Some(Err(format!("Unexpected token {}, ({:#X})", '!', b'!')));
+                }
+                return Some(Ok(Token::NotEqual))
+            }
+            '.' => {
+                let next = self.raw_text.next_if_eq(&'.');
+                if next.is_some() {
+                    return Some(Ok(Token::DoubleDot));
+                }
+                return Some(Ok(Token::Dot));
+            }
             unexpected => {
                 return Some(Err(format!(
                     "Unexpected token {}, ({:#X})",
@@ -158,7 +190,7 @@ mod tests {
 
     #[test]
     fn can_lex_single_symbol_tokens() {
-        let mut scan = Scanner::from_text("()[]{};=+-*^<>,");
+        let mut scan = Scanner::from_text("()[]{};+-*^,");
         single_token_check(scan.next(), Token::LParen);
         single_token_check(scan.next(), Token::RParen);
         single_token_check(scan.next(), Token::LBracket);
@@ -166,13 +198,10 @@ mod tests {
         single_token_check(scan.next(), Token::LBrace);
         single_token_check(scan.next(), Token::RBrace);
         single_token_check(scan.next(), Token::Semicolon);
-        single_token_check(scan.next(), Token::Assign);
         single_token_check(scan.next(), Token::Plus);
         single_token_check(scan.next(), Token::Minus);
         single_token_check(scan.next(), Token::Star);
         single_token_check(scan.next(), Token::Pow);
-        single_token_check(scan.next(), Token::Less);
-        single_token_check(scan.next(), Token::Greater);
         single_token_check(scan.next(), Token::Comma);
         assert_eq!(scan.next(), None, "There are still left over tokens");
     }
@@ -187,5 +216,20 @@ mod tests {
         assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
         assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
         assert_eq!(scan.next(), None);
+    }
+
+    #[test]
+    fn can_lex_one_or_two_character_tokens() {
+        let mut scan = Scanner::from_text("< <= > >= = == != . ..");
+        assert_eq!(scan.next(), Some(Ok(Token::Less)));
+        assert_eq!(scan.next(), Some(Ok(Token::LessEqual)));
+        assert_eq!(scan.next(), Some(Ok(Token::Greater)));
+        assert_eq!(scan.next(), Some(Ok(Token::GreaterEqual)));
+        assert_eq!(scan.next(), Some(Ok(Token::Assign)));
+        assert_eq!(scan.next(), Some(Ok(Token::Equal)));
+        assert_eq!(scan.next(), Some(Ok(Token::NotEqual)));
+        assert_eq!(scan.next(), Some(Ok(Token::Dot)));
+        assert_eq!(scan.next(), Some(Ok(Token::DoubleDot)));
+        assert_eq!(scan.next(), None, "There are still left over tokens");
     }
 }
