@@ -104,6 +104,13 @@ impl Iterator for Scanner {
 mod tests {
 
     use super::*;
+    use std::path::PathBuf;
+
+    fn get_test_dir() -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "resources", "test"]
+            .iter()
+            .collect()
+    }
 
     #[test]
     fn can_create_scanner_from_text() {
@@ -111,9 +118,21 @@ mod tests {
     }
 
     #[test]
-    fn creating_a_scanner_from_non_existing_file_panics() {
-        let scan = Scanner::from_file("Not_A_Real_File.txt");
+    fn creating_a_scanner_from_non_existing_file_fails() {
+        let mut d = get_test_dir();
+        d.push("Not_A_Real_File");
+        d.set_extension("txt");
+        let scan = Scanner::from_file(&d.into_os_string().into_string().unwrap());
         assert!(scan.is_err())
+    }
+
+    #[test]
+    fn creating_a_scanner_from_an_existing_file_works() {
+        let mut d = get_test_dir();
+        d.push("I_AM_A_REAL_FILE");
+        d.set_extension("txt");
+        let scan = Scanner::from_file(&d.into_os_string().into_string().unwrap());
+        assert!(scan.is_ok())
     }
 
     fn single_token_check(next: Option<Result<Token>>, expected: Token) {
