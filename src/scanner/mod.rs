@@ -95,41 +95,15 @@ impl Iterator for Scanner {
             '/' => return Some(Ok(Token::Div)),
             '^' => return Some(Ok(Token::Pow)),
             ',' => return Some(Ok(Token::Comma)),
-            '<' => {
-                let next = self.raw_text.next_if_eq(&'=');
-                if next.is_some() {
-                    return Some(Ok(Token::LessEqual));
-                }
-                return Some(Ok(Token::Less));
-            }
-            '>' => {
-                let next = self.raw_text.next_if_eq(&'=');
-                if next.is_some() {
-                    return Some(Ok(Token::GreaterEqual));
-                }
-                return Some(Ok(Token::Greater));
-            }
-            '=' => {
-                let next = self.raw_text.next_if_eq(&'=');
-                if next.is_some() {
-                    return Some(Ok(Token::Equal));
-                }
-                return Some(Ok(Token::Assign));
-            }
-            '!' => {
-                let next = self.raw_text.next_if_eq(&'=');
-                if next.is_none() {
-                    return Some(Err(format!("Unexpected token {}, ({:#X})", '!', b'!')));
-                }
-                return Some(Ok(Token::NotEqual));
-            }
-            '.' => {
-                let next = self.raw_text.next_if_eq(&'.');
-                if next.is_some() {
-                    return Some(Ok(Token::DoubleDot));
-                }
-                return Some(Ok(Token::Dot));
-            }
+            '<' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::LessEqual)),
+            '<' => return Some(Ok(Token::Less)),
+            '>' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::GreaterEqual)),
+            '>' => return Some(Ok(Token::Greater)),
+            '=' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::Equal)),
+            '=' => return Some(Ok(Token::Assign)),
+            '!' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::NotEqual)),
+            '.' if self.raw_text.next_if_eq(&'.').is_some() => return Some(Ok(Token::DoubleDot)),
+            '.' => return Some(Ok(Token::Dot)),
             unexpected => {
                 return Some(Err(format!(
                     "Unexpected token {}, ({:#X})",
