@@ -96,7 +96,7 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn from_text(text: &str) -> Self {
+    fn from_text(text: &str) -> Self {
         Self {
             raw_text: text.chars().collect::<Vec<_>>().into_iter().peekable(),
             location: Location::default(),
