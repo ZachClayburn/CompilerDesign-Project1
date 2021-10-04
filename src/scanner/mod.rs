@@ -3,66 +3,103 @@ use std::iter::Peekable;
 use std::vec::IntoIter;
 use std::{fs, io};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Location {
+    pub line: u32,
+    pub column: u32,
+}
+
+impl Default for Location {
+    fn default() -> Self {
+        Self { line: 1, column: 0 }
+    }
+}
+
+impl Location {
+    pub fn next_col(&mut self) {
+        self.column += 1;
+    }
+
+    pub fn next_line(&mut self) {
+        self.line += 1;
+        self.column = 0;
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Complex tokens
-    Number(i64),
-    Variable(String),
-    StringLiteral(String),
+    Number {
+        content: i64,
+        start: Location,
+        stop: Location,
+    },
+    Variable {
+        content: String,
+        start: Location,
+        stop: Location,
+    },
+    StringLiteral {
+        content: String,
+        start: Location,
+        stop: Location,
+    },
     // keywords
-    Program,
-    Begin,
-    End,
-    Switch,
-    Case,
-    Default,
-    Write,
-    Read,
-    For,
-    To,
-    Step,
-    Do,
-    If,
-    Then,
-    Else,
-    Array,
-    Procedure,
-    Num,
-    String,
-    Return,
+    Program(Location),
+    Begin(Location),
+    End(Location),
+    Switch(Location),
+    Case(Location),
+    Default(Location),
+    Write(Location),
+    Read(Location),
+    For(Location),
+    To(Location),
+    Step(Location),
+    Do(Location),
+    If(Location),
+    Then(Location),
+    Else(Location),
+    Array(Location),
+    Procedure(Location),
+    Num(Location),
+    String(Location),
+    Return(Location),
     // Symbols
-    LParen,
-    RParen,
-    LBracket,
-    RBracket,
-    LBrace,
-    RBrace,
-    Semicolon,
-    Assign,
-    Plus,
-    Minus,
-    Star,
-    Div,
-    Pow,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
-    Equal,
-    NotEqual,
-    Dot,
-    DoubleDot,
-    Comma,
+    LParen(Location),
+    RParen(Location),
+    LBracket(Location),
+    RBracket(Location),
+    LBrace(Location),
+    RBrace(Location),
+    Semicolon(Location),
+    Assign(Location),
+    Plus(Location),
+    Minus(Location),
+    Star(Location),
+    Div(Location),
+    Pow(Location),
+    Less(Location),
+    Greater(Location),
+    LessEqual(Location),
+    GreaterEqual(Location),
+    Equal(Location),
+    NotEqual(Location),
+    Dot(Location),
+    DoubleDot(Location),
+    Comma(Location),
 }
 
 pub struct Scanner {
     raw_text: Peekable<IntoIter<char>>,
+    location: Location,
 }
 
 impl Scanner {
     pub fn from_text(text: &str) -> Self {
         Self {
             raw_text: text.chars().collect::<Vec<_>>().into_iter().peekable(),
+            location: Location::default(),
         }
     }
 
@@ -71,43 +108,71 @@ impl Scanner {
     }
 }
 
-pub type Result<T> = std::result::Result<T, String>;
+pub type Result<T> = std::result::Result<T, (String, Location)>;
 
 impl Iterator for Scanner {
     type Item = Result<Token>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut c = self.raw_text.next()?;
+        self.location.next_col();
         while c.is_whitespace() {
+            if c == '\n' {
+                self.location.next_line();
+            }
+            self.location.next_col();
             c = self.raw_text.next()?;
         }
         match c {
-            '(' => return Some(Ok(Token::LParen)),
-            ')' => return Some(Ok(Token::RParen)),
-            '[' => return Some(Ok(Token::LBracket)),
-            ']' => return Some(Ok(Token::RBracket)),
-            '{' => return Some(Ok(Token::LBrace)),
-            '}' => return Some(Ok(Token::RBrace)),
-            ';' => return Some(Ok(Token::Semicolon)),
-            '+' => return Some(Ok(Token::Plus)),
-            '-' => return Some(Ok(Token::Minus)),
-            '*' => return Some(Ok(Token::Star)),
-            '/' => return Some(Ok(Token::Div)),
-            '^' => return Some(Ok(Token::Pow)),
-            ',' => return Some(Ok(Token::Comma)),
-            '<' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::LessEqual)),
-            '<' => return Some(Ok(Token::Less)),
-            '>' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::GreaterEqual)),
-            '>' => return Some(Ok(Token::Greater)),
-            '=' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::Equal)),
-            '=' => return Some(Ok(Token::Assign)),
-            '!' if self.raw_text.next_if_eq(&'=').is_some() => return Some(Ok(Token::NotEqual)),
-            '.' if self.raw_text.next_if_eq(&'.').is_some() => return Some(Ok(Token::DoubleDot)),
-            '.' => return Some(Ok(Token::Dot)),
+            '(' => return Some(Ok(Token::LParen(self.location))),
+            ')' => return Some(Ok(Token::RParen(self.location))),
+            '[' => return Some(Ok(Token::LBracket(self.location))),
+            ']' => return Some(Ok(Token::RBracket(self.location))),
+            '{' => return Some(Ok(Token::LBrace(self.location))),
+            '}' => return Some(Ok(Token::RBrace(self.location))),
+            ';' => return Some(Ok(Token::Semicolon(self.location))),
+            '+' => return Some(Ok(Token::Plus(self.location))),
+            '-' => return Some(Ok(Token::Minus(self.location))),
+            '*' => return Some(Ok(Token::Star(self.location))),
+            '/' => return Some(Ok(Token::Div(self.location))),
+            '^' => return Some(Ok(Token::Pow(self.location))),
+            ',' => return Some(Ok(Token::Comma(self.location))),
+            '<' if self.raw_text.next_if_eq(&'=').is_some() => {
+                let next_token = Some(Ok(Token::LessEqual(self.location)));
+                self.location.next_col();
+                return next_token;
+            }
+            '<' => return Some(Ok(Token::Less(self.location))),
+            '>' if self.raw_text.next_if_eq(&'=').is_some() => {
+                let next_token = Some(Ok(Token::GreaterEqual(self.location)));
+                self.location.next_col();
+                return next_token;
+            }
+            '>' => return Some(Ok(Token::Greater(self.location))),
+            '=' if self.raw_text.next_if_eq(&'=').is_some() => {
+                let next_token = Some(Ok(Token::Equal(self.location)));
+                self.location.next_col();
+                return next_token;
+            }
+            '=' => return Some(Ok(Token::Assign(self.location))),
+            '!' if self.raw_text.next_if_eq(&'=').is_some() => {
+                let next_token = Some(Ok(Token::NotEqual(self.location)));
+                self.location.next_col();
+                return next_token;
+            }
+            '.' if self.raw_text.next_if_eq(&'.').is_some() => {
+                let next_token = Some(Ok(Token::DoubleDot(self.location)));
+                self.location.next_col();
+                return next_token;
+            }
+            '.' => return Some(Ok(Token::Dot(self.location))),
             unexpected => {
-                return Some(Err(format!(
-                    "Unexpected token {}, ({:#X})",
-                    unexpected, unexpected as i32
+                return Some(Err((
+                    format!(
+                        "Unexpected token {}, ({:#X})",
+                        unexpected, unexpected as i32
+                    ),
+                    self.location,
                 )))
             }
         }
@@ -157,7 +222,9 @@ mod tests {
                 "Expected {:?}, but found {:?} in stead!",
                 expected, token
             ),
-            Some(Err(report)) => assert!(false, "Failed with error {}", report),
+            Some(Err((report, location))) => {
+                assert!(false, "Failed at {:?} with error {}", location, report)
+            }
             None => assert!(false, "Ran out of tokens early!"),
         }
     }
@@ -165,19 +232,52 @@ mod tests {
     #[test]
     fn can_lex_single_symbol_tokens() {
         let mut scan = Scanner::from_text("()[]{};+-*/^,");
-        single_token_check(scan.next(), Token::LParen);
-        single_token_check(scan.next(), Token::RParen);
-        single_token_check(scan.next(), Token::LBracket);
-        single_token_check(scan.next(), Token::RBracket);
-        single_token_check(scan.next(), Token::LBrace);
-        single_token_check(scan.next(), Token::RBrace);
-        single_token_check(scan.next(), Token::Semicolon);
-        single_token_check(scan.next(), Token::Plus);
-        single_token_check(scan.next(), Token::Minus);
-        single_token_check(scan.next(), Token::Star);
-        single_token_check(scan.next(), Token::Div);
-        single_token_check(scan.next(), Token::Pow);
-        single_token_check(scan.next(), Token::Comma);
+        single_token_check(scan.next(), Token::LParen(Location { line: 1, column: 1 }));
+        single_token_check(scan.next(), Token::RParen(Location { line: 1, column: 2 }));
+        single_token_check(
+            scan.next(),
+            Token::LBracket(Location { line: 1, column: 3 }),
+        );
+        single_token_check(
+            scan.next(),
+            Token::RBracket(Location { line: 1, column: 4 }),
+        );
+        single_token_check(scan.next(), Token::LBrace(Location { line: 1, column: 5 }));
+        single_token_check(scan.next(), Token::RBrace(Location { line: 1, column: 6 }));
+        single_token_check(
+            scan.next(),
+            Token::Semicolon(Location { line: 1, column: 7 }),
+        );
+        single_token_check(scan.next(), Token::Plus(Location { line: 1, column: 8 }));
+        single_token_check(scan.next(), Token::Minus(Location { line: 1, column: 9 }));
+        single_token_check(
+            scan.next(),
+            Token::Star(Location {
+                line: 1,
+                column: 10,
+            }),
+        );
+        single_token_check(
+            scan.next(),
+            Token::Div(Location {
+                line: 1,
+                column: 11,
+            }),
+        );
+        single_token_check(
+            scan.next(),
+            Token::Pow(Location {
+                line: 1,
+                column: 12,
+            }),
+        );
+        single_token_check(
+            scan.next(),
+            Token::Comma(Location {
+                line: 1,
+                column: 13,
+            }),
+        );
         assert_eq!(scan.next(), None, "There are still left over tokens");
     }
 
@@ -187,24 +287,76 @@ mod tests {
         ;
         ";
         let mut scan = Scanner::from_text(has_whitespace);
-        assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
-        assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
-        assert_eq!(scan.next(), Some(Ok(Token::Semicolon)));
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Semicolon(Location { line: 1, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Semicolon(Location { line: 1, column: 6 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Semicolon(Location { line: 2, column: 9 })))
+        );
         assert_eq!(scan.next(), None);
     }
 
     #[test]
     fn can_lex_one_or_two_character_tokens() {
         let mut scan = Scanner::from_text("< <= > >= = == != . ..");
-        assert_eq!(scan.next(), Some(Ok(Token::Less)));
-        assert_eq!(scan.next(), Some(Ok(Token::LessEqual)));
-        assert_eq!(scan.next(), Some(Ok(Token::Greater)));
-        assert_eq!(scan.next(), Some(Ok(Token::GreaterEqual)));
-        assert_eq!(scan.next(), Some(Ok(Token::Assign)));
-        assert_eq!(scan.next(), Some(Ok(Token::Equal)));
-        assert_eq!(scan.next(), Some(Ok(Token::NotEqual)));
-        assert_eq!(scan.next(), Some(Ok(Token::Dot)));
-        assert_eq!(scan.next(), Some(Ok(Token::DoubleDot)));
+        //                                 1234567890123456789012
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Less(Location { line: 1, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::LessEqual(Location { line: 1, column: 3 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Greater(Location { line: 1, column: 6 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::GreaterEqual(Location { line: 1, column: 8 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Assign(Location {
+                line: 1,
+                column: 11
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Equal(Location {
+                line: 1,
+                column: 13
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::NotEqual(Location {
+                line: 1,
+                column: 16
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Dot(Location {
+                line: 1,
+                column: 19
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::DoubleDot(Location {
+                line: 1,
+                column: 21
+            })))
+        );
         assert_eq!(scan.next(), None, "There are still left over tokens");
     }
 }
