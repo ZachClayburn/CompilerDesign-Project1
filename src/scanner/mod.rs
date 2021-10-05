@@ -215,6 +215,7 @@ impl Iterator for Scanner {
 mod tests {
 
     use super::*;
+    use indoc::indoc;
     use std::path::PathBuf;
 
     fn get_test_dir() -> PathBuf {
@@ -315,9 +316,9 @@ mod tests {
 
     #[test]
     fn can_skip_whitespace() {
-        let has_whitespace = ";   \t;
-;
-";
+        let has_whitespace = indoc! { ";   \t;
+        ;
+        " };
         let mut scan = Scanner::from_text(has_whitespace);
         assert_eq!(
             scan.next(),
@@ -394,44 +395,44 @@ mod tests {
 
     #[test]
     fn can_lex_line_comments() {
-        let comment_string = "
-//This line is a comment!
-/ // That / is not
-//This is as well                                !
-";
+        let comment_string = indoc! {"
+            //This line is a comment!
+            / // That / is not
+            //This is as well
+        "};
         let mut scan = Scanner::from_text(comment_string);
         assert_eq!(
             scan.next(),
-            Some(Ok(Token::Div(Location { line: 3, column: 1 })))
+            Some(Ok(Token::Div(Location { line: 2, column: 1 })))
         );
         assert_eq!(scan.next(), None);
     }
 
     #[test]
     fn can_lex_block_comments() {
-        let block_comment_string = "
-/* This is a block comment, I should just keep going
- * skiping whatever I see, even if I see / or *
- * in fact the only thing that will stop me is those two 
- * characters back it back likt this */
-/
-/* I should work on a single line */
-= /* I should be able to see tokens before and after me */ =
-/* This is an unterminated block comment, and should produce an error
-";
+        let block_comment_string = indoc! {"
+        /* This is a block comment, I should just keep going
+         * skiping whatever I see, even if I see / or *
+         * in fact the only thing that will stop me is those two 
+         * characters back it back likt this */
+        /
+        /* I should work on a single line */
+        = /* I should be able to see tokens before and after me */ =
+        /* This is an unterminated block comment, and should produce an error
+        "};
         let mut scan = Scanner::from_text(block_comment_string);
         assert_eq!(
             scan.next(),
-            Some(Ok(Token::Div(Location { line: 6, column: 1 })))
+            Some(Ok(Token::Div(Location { line: 5, column: 1 })))
         );
         assert_eq!(
             scan.next(),
-            Some(Ok(Token::Assign(Location { line: 8, column: 1 })))
+            Some(Ok(Token::Assign(Location { line: 7, column: 1 })))
         );
         assert_eq!(
             scan.next(),
             Some(Ok(Token::Assign(Location {
-                line: 8,
+                line: 7,
                 column: 60
             })))
         );
