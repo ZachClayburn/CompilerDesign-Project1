@@ -146,6 +146,26 @@ impl Iterator for Scanner {
                     self.location.next_line();
                     continue;
                 }
+                '/' if self.raw_text.next_if_eq(&'*').is_some() => {
+                    let start_pos = self.location.clone();
+                    self.location.next_col();
+                    loop {
+                        let next_char = self.raw_text.next();
+                        if let None = next_char {
+                            return Some(Err((format!("Unterminated block comment"), start_pos)));
+                        }
+                        self.location.next_col();
+                        c = next_char?;
+                        if is_newline(&c) {
+                            self.location.next_line();
+                        }
+                        if c == '*' && self.raw_text.next_if_eq(&'/').is_some() {
+                            self.location.next_col();
+                            break;
+                        }
+                    }
+                    continue;
+                }
                 '/' => Ok(Token::Div(self.location)),
                 '^' => Ok(Token::Pow(self.location)),
                 ',' => Ok(Token::Comma(self.location)),
@@ -385,5 +405,38 @@ mod tests {
             Some(Ok(Token::Div(Location { line: 3, column: 1 })))
         );
         assert_eq!(scan.next(), None);
+    }
+
+    #[test]
+    fn can_lex_block_comments() {
+        let block_comment_string = "
+/* This is a block comment, I should just keep going
+ * skiping whatever I see, even if I see / or *
+ * in fact the only thing that will stop me is those two 
+ * characters back it back likt this */
+/
+/* I should work on a single line */
+= /* I should be able to see tokens before and after me */ =
+/* This is an unterminated block comment, and should produce an error
+";
+        let mut scan = Scanner::from_text(block_comment_string);
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Div(Location { line: 6, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Assign(Location { line: 8, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Assign(Location {
+                line: 8,
+                column: 60
+            })))
+        );
+        let last_value = scan.next();
+        assert!(last_value.is_some());
+        assert!(last_value.unwrap().is_err());
     }
 }
