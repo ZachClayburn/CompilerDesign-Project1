@@ -2,11 +2,12 @@ use std::char;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use std::{fs, io};
+use peeking_take_while::PeekableExt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Location {
-    pub line: u32,
-    pub column: u32,
+    pub line: usize,
+    pub column: usize,
 }
 
 impl Default for Location {
@@ -20,8 +21,20 @@ impl Location {
         self.column += 1;
     }
 
+    pub fn advance_col(&mut self, count: usize) {
+        self.column += count;
+    }
+
     pub fn next_line(&mut self) {
         self.line += 1;
+        self.column = 0;
+    }
+
+    pub fn advance_line(&mut self, count: usize) {
+        if count == 0 {
+            return;
+        }
+        self.line += count;
         self.column = 0;
     }
 }
@@ -152,7 +165,7 @@ impl Iterator for Scanner {
                     loop {
                         let next_char = self.raw_text.next();
                         if let None = next_char {
-                            return Some(Err((format!("Unterminated block comment"), start_pos)));
+                            return Some(Err(("Unterminated block comment".to_string(), start_pos)));
                         }
                         self.location.next_col();
                         c = next_char?;
@@ -198,6 +211,27 @@ impl Iterator for Scanner {
                     next_token
                 }
                 '.' => (Ok(Token::Dot(self.location))),
+                '"' => {
+                    let start = self.location.clone();
+                    let content: String =
+                        self.raw_text.by_ref().peeking_take_while(|x| x != &'"').collect();
+                    let newlines = content.matches('\n').count();
+                    self.location.advance_line(newlines);
+                    if let Some((_, tail)) = content.rsplit_once('\n') {
+                        self.location.advance_col(tail.len() + 1);
+                    } else {
+                        self.location.advance_col(content.len() + 1);
+                    }
+                    if let Some('"') = self.raw_text.next_if_eq(&'"') {
+                        Ok(Token::StringLiteral {
+                            content,
+                            start,
+                            stop: self.location,
+                        })
+                    } else {
+                        Err(("Unterminated string!".to_string(), start))
+                    }
+                }
                 unexpected => Err((
                     format!(
                         "Unexpected token {}, ({:#X})",
@@ -439,5 +473,69 @@ mod tests {
         let last_value = scan.next();
         assert!(last_value.is_some());
         assert!(last_value.unwrap().is_err());
+    }
+
+    #[test]
+    fn can_lex_strings() {
+        let string_string = indoc! {r#"
+            "This is a string" "The next string will be empty" ""
+            "This string spans
+            multiple lines"
+            "This string is not termintated, and should result in an error
+        "#};
+        let mut scan = Scanner::from_text(string_string);
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::StringLiteral {
+                content: "This is a string".to_string(),
+                start: Location { line: 1, column: 1 },
+                stop: Location {
+                    line: 1,
+                    column: 18
+                }
+            }))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::StringLiteral {
+                content: "The next string will be empty".to_string(),
+                start: Location {
+                    line: 1,
+                    column: 20
+                },
+                stop: Location {
+                    line: 1,
+                    column: 50
+                }
+            }))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::StringLiteral {
+                content: "".to_string(),
+                start: Location {
+                    line: 1,
+                    column: 52
+                },
+                stop: Location {
+                    line: 1,
+                    column: 53
+                }
+            }))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::StringLiteral {
+                content: "This string spans\nmultiple lines".to_string(),
+                start: Location { line: 2, column: 1 },
+                stop: Location {
+                    line: 3,
+                    column: 15
+                }
+            }))
+        );
+        let unterminated = scan.next();
+        assert!(unterminated.is_some());
+        assert!(unterminated.unwrap().is_err());
     }
 }
