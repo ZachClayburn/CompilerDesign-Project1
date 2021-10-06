@@ -1,8 +1,8 @@
+use peeking_take_while::PeekableExt;
 use std::char;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use std::{fs, io};
-use peeking_take_while::PeekableExt;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Location {
@@ -43,7 +43,7 @@ impl Location {
 pub enum Token {
     // Complex tokens
     Number {
-        content: i64,
+        content: String,
         start: Location,
         stop: Location,
     },
@@ -150,7 +150,9 @@ impl Iterator for Scanner {
                 '}' => Ok(Token::RBrace(self.location)),
                 ';' => Ok(Token::Semicolon(self.location)),
                 '+' => Ok(Token::Plus(self.location)),
-                '-' => Ok(Token::Minus(self.location)),
+                '-' if self.raw_text.peek().map_or(true, |x| !x.is_digit(10)) => {
+                    Ok(Token::Minus(self.location))
+                }
                 '*' => Ok(Token::Star(self.location)),
                 '/' if self.raw_text.next_if_eq(&'/').is_some() => {
                     while !is_newline(&c) {
@@ -165,7 +167,10 @@ impl Iterator for Scanner {
                     loop {
                         let next_char = self.raw_text.next();
                         if let None = next_char {
-                            return Some(Err(("Unterminated block comment".to_string(), start_pos)));
+                            return Some(Err((
+                                "Unterminated block comment".to_string(),
+                                start_pos,
+                            )));
                         }
                         self.location.next_col();
                         c = next_char?;
@@ -213,8 +218,11 @@ impl Iterator for Scanner {
                 '.' => (Ok(Token::Dot(self.location))),
                 '"' => {
                     let start = self.location.clone();
-                    let content: String =
-                        self.raw_text.by_ref().peeking_take_while(|x| x != &'"').collect();
+                    let content: String = self
+                        .raw_text
+                        .by_ref()
+                        .peeking_take_while(|x| x != &'"')
+                        .collect();
                     let newlines = content.matches('\n').count();
                     self.location.advance_line(newlines);
                     if let Some((_, tail)) = content.rsplit_once('\n') {
@@ -230,6 +238,27 @@ impl Iterator for Scanner {
                         })
                     } else {
                         Err(("Unterminated string!".to_string(), start))
+                    }
+                }
+                number if number.is_digit(10) || number == '-' => {
+                    let start = self.location.clone();
+                    let first_char = number.to_string();
+                    let rest: String = self
+                        .raw_text
+                        .by_ref()
+                        .peeking_take_while(|x| x.is_digit(10))
+                        .collect();
+                    self.location.advance_col(rest.len());
+                    let content = first_char + &rest;
+                    let next = self.raw_text.peek();
+                    if next.map_or(false, |x| x.is_alphabetic()) {
+                        Err(("Invalid Number".to_string(), start))
+                    } else {
+                        Ok(Token::Number {
+                            content,
+                            start,
+                            stop: self.location,
+                        })
                     }
                 }
                 unexpected => Err((
@@ -537,5 +566,40 @@ mod tests {
         let unterminated = scan.next();
         assert!(unterminated.is_some());
         assert!(unterminated.unwrap().is_err());
+    }
+
+    #[test]
+    fn can_lex_numbers() {
+        let mut scan = Scanner::from_text("1 123 -213 12a");
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Number {
+                content: "1".to_string(),
+                start: Location { line: 1, column: 1 },
+                stop: Location { line: 1, column: 1 },
+            }))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Number {
+                content: "123".to_string(),
+                start: Location { line: 1, column: 3 },
+                stop: Location { line: 1, column: 5 },
+            }))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Number {
+                content: "-213".to_string(),
+                start: Location { line: 1, column: 7 },
+                stop: Location {
+                    line: 1,
+                    column: 10
+                },
+            }))
+        );
+        let bad_number = scan.next();
+        assert!(bad_number.is_some());
+        assert!(bad_number.unwrap().is_err());
     }
 }
