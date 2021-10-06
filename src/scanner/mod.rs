@@ -47,7 +47,7 @@ pub enum Token {
         start: Location,
         stop: Location,
     },
-    Variable {
+    Identifier {
         content: String,
         start: Location,
         stop: Location,
@@ -259,6 +259,44 @@ impl Iterator for Scanner {
                             start,
                             stop: self.location,
                         })
+                    }
+                }
+                letter if letter.is_ascii_alphabetic() => {
+                    let start = self.location.clone();
+                    let first_char = letter.to_string();
+                    let rest: String = self
+                        .raw_text
+                        .by_ref()
+                        .peeking_take_while(|x| x.is_ascii_alphanumeric() || x == &'_')
+                        .collect();
+                    self.location.advance_col(rest.len());
+                    let content = first_char + &rest;
+                    match content.as_str() {
+                        "program" => Ok(Token::Program(start)),
+                        "begin" => Ok(Token::Begin(start)),
+                        "end" => Ok(Token::End(start)),
+                        "switch" => Ok(Token::Switch(start)),
+                        "case" => Ok(Token::Case(start)),
+                        "default" => Ok(Token::Default(start)),
+                        "write" => Ok(Token::Write(start)),
+                        "read" => Ok(Token::Read(start)),
+                        "for" => Ok(Token::For(start)),
+                        "to" => Ok(Token::To(start)),
+                        "step" => Ok(Token::Step(start)),
+                        "do" => Ok(Token::Do(start)),
+                        "if" => Ok(Token::If(start)),
+                        "then" => Ok(Token::Then(start)),
+                        "else" => Ok(Token::Else(start)),
+                        "array" => Ok(Token::Array(start)),
+                        "procedure" => Ok(Token::Procedure(start)),
+                        "num" => Ok(Token::Num(start)),
+                        "string" => Ok(Token::String(start)),
+                        "return" => Ok(Token::Return(start)),
+                        _ => Ok(Token::Identifier {
+                            content,
+                            start,
+                            stop: self.location,
+                        }),
                     }
                 }
                 unexpected => Err((
@@ -601,5 +639,190 @@ mod tests {
         let bad_number = scan.next();
         assert!(bad_number.is_some());
         assert!(bad_number.unwrap().is_err());
+    }
+
+    #[test]
+    fn can_lex_identifyers() {
+        let mut scan = Scanner::from_text("notAKeyword Hasnumbers123 has_underscore");
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Identifier {
+                content: "notAKeyword".to_string(),
+                start: Location { line: 1, column: 1 },
+                stop: Location {
+                    line: 1,
+                    column: 11,
+                }
+            }))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Identifier {
+                content: "Hasnumbers123".to_string(),
+                start: Location {
+                    line: 1,
+                    column: 13,
+                },
+                stop: Location {
+                    line: 1,
+                    column: 25,
+                }
+            }))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Identifier {
+                content: "has_underscore".to_string(),
+                start: Location {
+                    line: 1,
+                    column: 27,
+                },
+                stop: Location {
+                    line: 1,
+                    column: 40,
+                }
+            }))
+        );
+        assert_eq!(scan.next(), None);
+    }
+
+    #[test]
+    fn can_lex_keywords() {
+        let mut scan = Scanner::from_text(indoc! {"
+            program
+            begin
+            end
+            switch
+            case
+            default
+            write
+            read
+            for
+            to
+            step
+            do
+            if
+            then
+            else
+            array
+            procedure
+            num
+            string
+            return"
+        });
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Program(Location { line: 1, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Begin(Location { line: 2, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::End(Location { line: 3, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Switch(Location { line: 4, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Case(Location { line: 5, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Default(Location { line: 6, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Write(Location { line: 7, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Read(Location { line: 8, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::For(Location { line: 9, column: 1 })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::To(Location {
+                line: 10,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Step(Location {
+                line: 11,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Do(Location {
+                line: 12,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::If(Location {
+                line: 13,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Then(Location {
+                line: 14,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Else(Location {
+                line: 15,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Array(Location {
+                line: 16,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Procedure(Location {
+                line: 17,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Num(Location {
+                line: 18,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::String(Location {
+                line: 19,
+                column: 1
+            })))
+        );
+        assert_eq!(
+            scan.next(),
+            Some(Ok(Token::Return(Location {
+                line: 20,
+                column: 1
+            })))
+        );
+        assert_eq!(scan.next(), None);
     }
 }
