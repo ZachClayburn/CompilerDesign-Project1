@@ -167,6 +167,70 @@ impl Display for Token {
     }
 }
 
+impl Token {
+    pub fn format_location(&self) -> String {
+        match self {
+            Token::Number {
+                content: _,
+                start: loc,
+                stop: _,
+            }
+            | Token::Identifier {
+                content: _,
+                start: loc,
+                stop: _,
+            }
+            | Token::StringLiteral {
+                content: _,
+                start: loc,
+                stop: _,
+            }
+            | Token::Program(loc)
+            | Token::Begin(loc)
+            | Token::End(loc)
+            | Token::Switch(loc)
+            | Token::Case(loc)
+            | Token::Default(loc)
+            | Token::Write(loc)
+            | Token::Read(loc)
+            | Token::For(loc)
+            | Token::To(loc)
+            | Token::Step(loc)
+            | Token::Do(loc)
+            | Token::If(loc)
+            | Token::Then(loc)
+            | Token::Else(loc)
+            | Token::Array(loc)
+            | Token::Procedure(loc)
+            | Token::Num(loc)
+            | Token::String(loc)
+            | Token::Return(loc)
+            | Token::LParen(loc)
+            | Token::RParen(loc)
+            | Token::LBracket(loc)
+            | Token::RBracket(loc)
+            | Token::LBrace(loc)
+            | Token::RBrace(loc)
+            | Token::Semicolon(loc)
+            | Token::Assign(loc)
+            | Token::Plus(loc)
+            | Token::Minus(loc)
+            | Token::Star(loc)
+            | Token::Div(loc)
+            | Token::Pow(loc)
+            | Token::Less(loc)
+            | Token::Greater(loc)
+            | Token::LessEqual(loc)
+            | Token::GreaterEqual(loc)
+            | Token::Equal(loc)
+            | Token::NotEqual(loc)
+            | Token::Dot(loc)
+            | Token::DoubleDot(loc)
+            | Token::Comma(loc) => format!("{}:{}", loc.line, loc.column),
+        }
+    }
+}
+
 /// An iterable struct that produces the tokens of the given file
 pub struct Scanner {
     raw_text: Peekable<IntoIter<char>>,
