@@ -1,6 +1,8 @@
+mod assembly;
 mod parser;
 mod scanner;
 
+use crate::assembly::generate_asm;
 use crate::parser::parse;
 use crate::scanner::Scanner;
 use clap::{App, AppSettings, Arg};
@@ -35,11 +37,44 @@ fn main() {
                 .default_value("a.log"),
         )
         .get_matches();
-    let infile_name = matches.value_of("input").unwrap();
-    println!("Input file name: {}", infile_name);
+    let infile_name = matches.value_of("input");
     println!("Output file name: {}", matches.value_of("output").unwrap());
     println!("Error file name: {}", matches.value_of("error").unwrap());
 
-    let scanner = Scanner::from_file(infile_name).expect("Error opening input file");
-    let _result = parse(scanner.peekable());
+    infile_name
+        .ok_or("Input not given!")
+        .map_or_else(
+            |err| {
+                // TODO This should actually print to the error file
+                println!("{}", err);
+                std::process::exit(1);
+            },
+            |file_name| Scanner::from_file(file_name),
+        )
+        .map_or_else(
+            |x| {
+                // TODO This should actually print to the error file
+                println!("{}", x);
+                std::process::exit(1);
+            },
+            |scanner| parse(scanner.peekable()),
+        )
+        .map_or_else(
+            |x| {
+                // TODO This should actually print to the error file
+                println!("{}", x);
+                std::process::exit(1);
+            },
+            |program| generate_asm(program),
+        )
+        .map_or_else(
+            |x| {
+                // TODO This should actually print to the error file
+                println!("{}", x);
+                std::process::exit(1);
+            },
+            // TODO this should be going to the asm file
+            |asm| println!("{}", asm),
+        );
+
 }
