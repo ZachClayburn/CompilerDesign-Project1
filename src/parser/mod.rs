@@ -1,31 +1,38 @@
-use crate::scanner::*;
+mod program;
+
+use crate::scanner::Scanner;
 use std::iter::Peekable;
-use std::io;
 
-pub struct Parser { 
-    scanner: Peekable<Scanner>,
+pub use program::Program;
+
+pub type Result<T> = std::result::Result<T, String>;
+
+pub fn parse(mut scan: Peekable<Scanner>) -> Result<Program> {
+    let tree = Program::parse(&mut scan);
+    if let Ok(ref program) = tree {
+        println!("Done parsing program {}", program.get_name());
+    }
+    tree
 }
 
-impl Parser {
-    #[cfg(test)]
-    fn from_text(test: &str) -> Self {
-        Self {
-            scanner: Scanner::from_text(test).peekable()
-        }
-    }
+trait Parseable {
+    fn parse(scanner: &mut Peekable<Scanner>) -> Result<Self>
+    where
+        Self: Sized;
+}
 
-    pub fn from_file(file_path: &str) -> io::Result<Self> {
-        Ok(Self {
-            scanner: Scanner::from_file(file_path)?.peekable()
-        })
-    }
-
-    pub fn parse(self) {
-        for result in self.scanner {
-            match result {
-                Ok(token) => println!("{:?}", token),
-                Err(err) => println!("{:?}", err),
-            }
+fn process_bad_token<T>(r: Option<<Scanner as Iterator>::Item>, expected_token: &str) -> Result<T> {
+    match r {
+        Some(Err((error, location))) => {
+            Err(format!("Errror in scanner at {:?}: {}", location, error))
         }
+        Some(Ok(token)) => Err(format!(
+            "[{}] Expected {}, got {}",
+            token.format_location(),
+            expected_token,
+            token
+        )),
+        None => Err("Unexpected end of file!".to_string()),
     }
 }
+

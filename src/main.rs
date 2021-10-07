@@ -1,8 +1,9 @@
-mod scanner;
 mod parser;
+mod scanner;
 
+use crate::parser::parse;
+use crate::scanner::Scanner;
 use clap::{App, AppSettings, Arg};
-use crate::parser::Parser;
 
 fn main() {
     let matches = App::new("compiler")
@@ -39,6 +40,6 @@ fn main() {
     println!("Output file name: {}", matches.value_of("output").unwrap());
     println!("Error file name: {}", matches.value_of("error").unwrap());
 
-    let mut file_parser = Parser::from_file(infile_name).expect("Error opening input file");
-    file_parser.parse();
+    let scanner = Scanner::from_file(infile_name).expect("Error opening input file");
+    let _result = parse(scanner.peekable());
 }
