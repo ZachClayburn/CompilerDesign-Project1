@@ -1,0 +1,42 @@
+program basicsExample;
+	begin
+		//A comment may be on a single line or 
+		/* on multiple lines.
+		This line is commented out too!
+		Comments follow the same convention as 
+		is C++.
+		*/
+		//To pass off, a program should be able to handle
+		//comments, multiply, subtract, divide, add, and exponents.
+		//A lot of this first passoff will test your ability to parse.
+		//Your architectural design in this first module will 
+		//affect the rest of your compiler.
+		num num1;
+		num num2 = 3;
+		/*
+		remember that "num" is only an integer.
+		We don't worry about how many bits a num is, but
+		it would be a signed 32-bit integer if we cared.
+		*/
+		/*
+		You may be wondering why I capatilized "String".  
+		It is because I do it by habit.  This language is 
+		not case insesitive.
+		*/
+		//Now let's manipulate stuff!
+		num num3 = num2;
+		num3 = num3 + 10;
+		num2 = num3 + num2;
+		num1 = 2 * 5;
+		//On the previous line, please do not set the register to 10.
+		//I realize that this is more optimal, but I have my reasoning.
+		num1 = num3 * num2;
+		num2 = 8 - 5; //subtracting is fun!
+		num2=8- 5;
+		//Note: The last two line are the same.
+		num3 = 8 ^ 6;
+		write "Basics.txt:";
+		write num1;
+		write num2;
+		write num3;	
+	end.
