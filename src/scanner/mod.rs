@@ -103,13 +103,14 @@ pub enum Token {
     Comma(Location),
 }
 
+/// An iterable struct that produces the tokens of the given file
 pub struct Scanner {
     raw_text: Peekable<IntoIter<char>>,
     location: Location,
 }
 
 impl Scanner {
-    fn from_text(text: &str) -> Self {
+    pub fn from_text(text: &str) -> Self {
         Self {
             raw_text: text.chars().collect::<Vec<_>>().into_iter().peekable(),
             location: Location::default(),
