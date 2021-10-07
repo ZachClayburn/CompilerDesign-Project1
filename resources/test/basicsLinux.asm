@@ -136,6 +136,6 @@ section .code
 	; All done.
 	mov	eax, 0x0
 	;call	ExitProcess@4
-	call 	exit;
+	call	exit;
 	
 	; (eof)
