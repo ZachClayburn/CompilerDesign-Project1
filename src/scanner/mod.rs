@@ -2,7 +2,7 @@ use peeking_take_while::PeekableExt;
 use std::char;
 use std::iter::Peekable;
 use std::vec::IntoIter;
-use std::{fs, io};
+use std::{fs, io, fmt::Display};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Location {
@@ -101,6 +101,70 @@ pub enum Token {
     Dot(Location),
     DoubleDot(Location),
     Comma(Location),
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Number {
+                content,
+                start: _,
+                stop: _,
+            } => write!(f, "Number: {}", content),
+            Token::Identifier {
+                content,
+                start: _,
+                stop: _,
+            } => write!(f, "Identifier: {}", content),
+            Token::StringLiteral {
+                content,
+                start: _,
+                stop: _,
+            } => write!(f, "StringLiteral: {}", content),
+            Token::Program(_) => write!(f, "Program"),
+            Token::Begin(_) => write!(f, "Begin"),
+            Token::End(_) => write!(f, "End"),
+            Token::Switch(_) => write!(f, "Switch"),
+            Token::Case(_) => write!(f, "Case"),
+            Token::Default(_) => write!(f, "Default"),
+            Token::Write(_) => write!(f, "Write"),
+            Token::Read(_) => write!(f, "Read"),
+            Token::For(_) => write!(f, "For"),
+            Token::To(_) => write!(f, "To"),
+            Token::Step(_) => write!(f, "Step"),
+            Token::Do(_) => write!(f, "Do"),
+            Token::If(_) => write!(f, "If"),
+            Token::Then(_) => write!(f, "Then"),
+            Token::Else(_) => write!(f, "Else"),
+            Token::Array(_) => write!(f, "Array"),
+            Token::Procedure(_) => write!(f, "Procedure"),
+            Token::Num(_) => write!(f, "Num"),
+            Token::String(_) => write!(f, "String"),
+            Token::Return(_) => write!(f, "Return"),
+            Token::LParen(_) => write!(f, "LParen"),
+            Token::RParen(_) => write!(f, "RParen"),
+            Token::LBracket(_) => write!(f, "LBracket"),
+            Token::RBracket(_) => write!(f, "RBracket"),
+            Token::LBrace(_) => write!(f, "LBrace"),
+            Token::RBrace(_) => write!(f, "RBrace"),
+            Token::Semicolon(_) => write!(f, "Semicolon"),
+            Token::Assign(_) => write!(f, "Assign"),
+            Token::Plus(_) => write!(f, "Plus"),
+            Token::Minus(_) => write!(f, "Minus"),
+            Token::Star(_) => write!(f, "Star"),
+            Token::Div(_) => write!(f, "Div"),
+            Token::Pow(_) => write!(f, "Pow"),
+            Token::Less(_) => write!(f, "Less"),
+            Token::Greater(_) => write!(f, "Greater"),
+            Token::LessEqual(_) => write!(f, "LessEqual"),
+            Token::GreaterEqual(_) => write!(f, "GreaterEqual"),
+            Token::Equal(_) => write!(f, "Equal"),
+            Token::NotEqual(_) => write!(f, "NotEqual"),
+            Token::Dot(_) => write!(f, "Dot"),
+            Token::DoubleDot(_) => write!(f, "DoubleDot"),
+            Token::Comma(_) => write!(f, "Comma"),
+        }
+    }
 }
 
 /// An iterable struct that produces the tokens of the given file
