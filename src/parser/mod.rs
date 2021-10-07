@@ -1,9 +1,11 @@
 mod program;
+mod statement;
 
 use crate::scanner::Scanner;
 use std::iter::Peekable;
 
 pub use program::Program;
+pub use statement::Statement;
 
 pub type Result<T> = std::result::Result<T, String>;
 
