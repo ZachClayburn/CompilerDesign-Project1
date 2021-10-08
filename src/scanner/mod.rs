@@ -57,9 +57,7 @@ impl Iterator for Scanner {
                 '}' => Ok(Token::RBrace(self.location)),
                 ';' => Ok(Token::Semicolon(self.location)),
                 '+' => Ok(Token::Plus(self.location)),
-                '-' if self.raw_text.peek().map_or(true, |x| !x.is_digit(10)) => {
-                    Ok(Token::Minus(self.location))
-                }
+                '-' => Ok(Token::Minus(self.location)),
                 '*' => Ok(Token::Star(self.location)),
                 '/' if self.raw_text.next_if_eq(&'/').is_some() => {
                     while !is_newline(&c) {
@@ -147,7 +145,7 @@ impl Iterator for Scanner {
                         Err(("Unterminated string!".to_string(), start))
                     }
                 }
-                number if number.is_digit(10) || number == '-' => {
+                number if number.is_digit(10) => {
                     let start = self.location.clone();
                     let first_char = number.to_string();
                     let rest: String = self
@@ -515,7 +513,7 @@ mod tests {
 
     #[test]
     fn can_lex_numbers() {
-        let mut scan = Scanner::from_text("1 123 -213 12a");
+        let mut scan = Scanner::from_text("1 123 12a");
         assert_eq!(
             scan.next(),
             Some(Ok(Token::Number {
@@ -530,17 +528,6 @@ mod tests {
                 content: "123".to_string(),
                 start: Location { line: 1, column: 3 },
                 stop: Location { line: 1, column: 5 },
-            }))
-        );
-        assert_eq!(
-            scan.next(),
-            Some(Ok(Token::Number {
-                content: "-213".to_string(),
-                start: Location { line: 1, column: 7 },
-                stop: Location {
-                    line: 1,
-                    column: 10
-                },
             }))
         );
         let bad_number = scan.next();
