@@ -1,5 +1,6 @@
 mod program;
 mod statement;
+mod expression;
 
 use crate::scanner::Scanner;
 use std::iter::Peekable;
