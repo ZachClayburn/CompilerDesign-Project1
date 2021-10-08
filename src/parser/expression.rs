@@ -64,6 +64,7 @@ mod test {
         let output = Expression::parse(&mut scan).unwrap();
         let expected = Expression::Value(Atom::NumberLiteral(123));
         assert_eq!(output, expected);
+        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
     }
 
     #[test]
@@ -82,5 +83,6 @@ mod test {
         let output = Expression::parse(&mut scan).unwrap();
         let expected = Expression::Value(Atom::StringLiteral("123".to_string()));
         assert_eq!(output, expected);
+        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
     }
 }

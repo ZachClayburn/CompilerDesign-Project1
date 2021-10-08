@@ -14,7 +14,7 @@ pub fn generate_asm(program: Program) -> Result<String> {
     let mut symbol_table = SymbolTable::new();
     for statement in program.statements {
         match statement {
-            Statement::NumDeclaration(name) => {
+            Statement::NumDeclaration(name, None) => {
                 let label = symbol_table.add_number(name)?;
                 asm_file.bss.push(format!("{:11} resd 1", label));
             }
@@ -58,7 +58,7 @@ mod test {
     #[test]
     fn can_process_program_with_uninitialized_num() {
         let mut program = Program::new("program".to_string());
-        program.add_statement(Statement::NumDeclaration("num1".to_string()));
+        program.add_statement(Statement::NumDeclaration("num1".to_string(), None));
         let asm = generate_asm(program).unwrap();
         let expected = indoc! {"
             global main
@@ -76,7 +76,7 @@ mod test {
     #[test]
     fn can_process_program_with_literal_assignment() {
         let mut program = Program::new("".to_string());
-        program.add_statement(Statement::NumDeclaration("num1".to_string()));
+        program.add_statement(Statement::NumDeclaration("num1".to_string(), None));
         program.add_statement(Statement::Assignment(
             "num1".to_string(),
             Expression::Value(Atom::NumberLiteral(10)),

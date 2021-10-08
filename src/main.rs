@@ -37,43 +37,34 @@ fn main() {
                 .default_value("a.log"),
         )
         .get_matches();
-    let infile_name = matches.value_of("input");
+    let infile_name = matches.value_of("input").unwrap();
     println!("Output file name: {}", matches.value_of("output").unwrap());
     println!("Error file name: {}", matches.value_of("error").unwrap());
 
-    infile_name
-        .ok_or("Input not given!")
-        .map_or_else(
-            |err| {
-                // TODO This should actually print to the error file
-                println!("{}", err);
-                std::process::exit(1);
-            },
-            |file_name| Scanner::from_file(file_name),
-        )
-        .map_or_else(
-            |x| {
-                // TODO This should actually print to the error file
-                println!("{}", x);
-                std::process::exit(1);
-            },
-            |scanner| parse(scanner.peekable()),
-        )
-        .map_or_else(
-            |x| {
-                // TODO This should actually print to the error file
-                println!("{}", x);
-                std::process::exit(1);
-            },
-            |program| generate_asm(program),
-        )
-        .map_or_else(
-            |x| {
-                // TODO This should actually print to the error file
-                println!("{}", x);
-                std::process::exit(1);
-            },
-            // TODO this should be going to the asm file
-            |asm| println!("{}", asm),
-        );
+    let scanner = match Scanner::from_file(infile_name) {
+        Ok(scanner) => scanner.peekable(),
+        Err(err) => {
+            // TODO This should actually print to the error file
+            println!("{}", err);
+            std::process::exit(1);
+        }
+    };
+    let ast = match parse(scanner) {
+        Ok(ast) => ast,
+        Err(err) => {
+            // TODO This should actually print to the error file
+            println!("{}", err);
+            std::process::exit(1);
+        }
+    };
+    let asm = match generate_asm(ast) {
+        Ok(asm) => asm,
+        Err(err) => {
+            // TODO This should actually print to the error file
+            println!("{}", err);
+            std::process::exit(1);
+        }
+    };
+    // TODO this should be going to the asm file
+    println!("{}", asm);
 }
