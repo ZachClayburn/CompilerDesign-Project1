@@ -4,7 +4,7 @@ use crate::scanner::Token;
 #[derive(Debug, PartialEq)]
 pub struct Program {
     name: String,
-    statements: Vec<Statement>,
+    pub statements: Vec<Statement>,
 }
 
 impl Program {
