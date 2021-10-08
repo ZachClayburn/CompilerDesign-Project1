@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use super::Location;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -192,4 +192,3 @@ impl Token {
         }
     }
 }
-

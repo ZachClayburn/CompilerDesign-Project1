@@ -44,4 +44,3 @@ impl Display for AsmFile {
         write!(f, "{}{}{}{}{}", exports, imports, data, bss, text)
     }
 }
-

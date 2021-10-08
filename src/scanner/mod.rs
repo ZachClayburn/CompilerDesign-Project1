@@ -1,13 +1,13 @@
-mod tokens;
 mod location;
+mod tokens;
 
+pub use location::Location;
 use peeking_take_while::PeekableExt;
 use std::char;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use std::{fs, io};
 pub use tokens::Token;
-pub use location::Location;
 
 /// An iterable struct that produces the tokens of the given file
 pub struct Scanner {

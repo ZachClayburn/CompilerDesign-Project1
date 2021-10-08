@@ -22,20 +22,19 @@ impl Parseable for Statement {
 }
 
 fn num_declarations(scanner: &mut Peekable<Scanner>) -> Result<Statement> {
-        let name = match scanner.next() {
-            Some(Ok(Token::Identifier {
-                content,
-                start: _,
-                stop: _,
-            })) => content,
-            unexpected => return process_bad_token(unexpected, "Identifier"),
-        };
-        match scanner.next() {
-            Some(Ok(Token::Semicolon(_))) => (),
-            unexpected => return process_bad_token(unexpected, "Semicolon"),
-        };
-        Ok(Statement::NumDeclaration(name))
-
+    let name = match scanner.next() {
+        Some(Ok(Token::Identifier {
+            content,
+            start: _,
+            stop: _,
+        })) => content,
+        unexpected => return process_bad_token(unexpected, "Identifier"),
+    };
+    match scanner.next() {
+        Some(Ok(Token::Semicolon(_))) => (),
+        unexpected => return process_bad_token(unexpected, "Semicolon"),
+    };
+    Ok(Statement::NumDeclaration(name))
 }
 
 #[cfg(test)]

@@ -32,4 +32,3 @@ impl Location {
         self.column = 0;
     }
 }
-

@@ -76,5 +76,4 @@ fn main() {
             // TODO this should be going to the asm file
             |asm| println!("{}", asm),
         );
-
 }

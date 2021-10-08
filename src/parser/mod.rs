@@ -37,4 +37,3 @@ fn process_bad_token<T>(r: Option<<Scanner as Iterator>::Item>, expected_token: 
         None => Err("Unexpected end of file!".to_string()),
     }
 }
-
