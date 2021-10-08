@@ -7,6 +7,7 @@ use std::iter::Peekable;
 
 pub use program::Program;
 pub use statement::Statement;
+pub use expression::{Expression, Atom, Sign, Op};
 
 pub type Result<T> = std::result::Result<T, String>;
 

@@ -18,6 +18,7 @@ pub fn generate_asm(program: Program) -> Result<String> {
                 let label = symbol_table.add_number(name)?;
                 asm_file.bss.push(format!("{:11} resd 1", label));
             }
+            _ => todo!(),
         }
     }
     // Set up call to exit
