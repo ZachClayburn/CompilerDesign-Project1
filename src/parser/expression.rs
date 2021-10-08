@@ -19,14 +19,8 @@ pub enum Op {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Sign {
-    Positive,
-    Negative,
-}
-
-#[derive(Debug, PartialEq)]
 pub enum Atom {
-    NumberLiteral(Vec<Sign>, i32),
+    NumberLiteral(i32),
     Variable(String),
     StringLiteral(String),
 }
@@ -46,7 +40,7 @@ impl Parseable for Expression {
                     Ok(num) => num,
                     Err(err) => return Err(format!("[{}:{}] {}", start.line, start.column, err)),
                 };
-                Expression::Value(Atom::NumberLiteral(Vec::new(), num))
+                Expression::Value(Atom::NumberLiteral(num))
             }
             Some(Ok(Token::StringLiteral {
                 content,
@@ -68,7 +62,7 @@ mod test {
     fn can_parse_number_literal() {
         let mut scan = Scanner::from_text("123").peekable();
         let output = Expression::parse(&mut scan).unwrap();
-        let expected = Expression::Value(Atom::NumberLiteral(Vec::new(), 123));
+        let expected = Expression::Value(Atom::NumberLiteral(123));
         assert_eq!(output, expected);
     }
 

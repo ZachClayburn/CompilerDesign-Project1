@@ -36,4 +36,15 @@ impl SymbolTable {
         self.number_count += 1;
         Ok(label)
     }
+
+    pub fn get_number_label(&mut self, var_name: &String) -> Result<&String> {
+        match self.symbols.get(var_name) {
+            Some(Symbol::Number(SymbolInfo { label })) => Ok(label),
+            Some(Symbol::String(SymbolInfo { label: _ })) => Err(format!(
+                "Variable {} used as a number, is actually a string!",
+                var_name
+            )),
+            None => Err(format!("Unkonwn variable {}", var_name)),
+        }
+    }
 }

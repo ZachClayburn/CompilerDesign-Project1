@@ -1,13 +1,13 @@
+mod expression;
 mod program;
 mod statement;
-mod expression;
 
 use crate::scanner::Scanner;
 use std::iter::Peekable;
 
+pub use expression::{Atom, Expression, Op};
 pub use program::Program;
 pub use statement::Statement;
-pub use expression::{Expression, Atom, Sign, Op};
 
 pub type Result<T> = std::result::Result<T, String>;
 
