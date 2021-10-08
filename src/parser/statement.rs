@@ -2,6 +2,7 @@ use super::{process_bad_token, Parseable, Result};
 use crate::scanner::{Scanner, Token};
 use std::iter::Peekable;
 
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     NumDeclaration(String),
     // NumAssignment,
