@@ -29,7 +29,7 @@ pub fn generate_asm(program: Program) -> Result<String> {
             Assignment(name, exp) => {
                 let label = symbol_table.get_number_label(&name)?;
                 let mut instructions =
-                    generate_expression_assignment_assembly(&label, &symbol_table, exp);
+                    generate_expression_assignment_assembly(&label, &symbol_table, exp)?;
                 asm_file.text.append(&mut instructions);
             }
             unexpected => todo!("{:?}", unexpected),
@@ -43,21 +43,30 @@ pub fn generate_asm(program: Program) -> Result<String> {
 }
 
 fn generate_expression_assignment_assembly(
-    destination_label: &String,
+    dest_label: &String,
     symbol_table: &SymbolTable,
     expression: Expression,
-) -> Vec<String> {
+) -> Result<Vec<String>> {
     match expression {
-        Value(NumberLiteral(value)) => vec![format!(
+        Value(NumberLiteral(value)) => Ok(vec![format!(
             "            mov     DWORD[{}], {}",
-            destination_label, value
-        )],
+            dest_label, value
+        )]),
         Operator(l_exp, Add, r_exp) => match (*l_exp, *r_exp) {
-            (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => {
-                vec![
-                    format!("            mov     DWORD[{}], {}", destination_label, lhs),
-                    format!("            add     DWORD[{}], {}", destination_label, rhs),
-                ]
+            (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
+                format!("            mov     DWORD[{}], {}", dest_label, lhs),
+                format!("            add     DWORD[{}], {}", dest_label, rhs),
+            ]),
+            (Value(NumberLiteral(num)), Value(Variable(var)))
+            | (Value(Variable(var)), Value(NumberLiteral(num))) => {
+                let var_label = symbol_table.get_number_label(&var)?;
+                Ok(vec![
+                    format!(
+                        "            mov     DWORD[{}], DWORD[{}]",
+                        dest_label, var_label
+                    ),
+                    format!("            add     DWORD[{}], {}", dest_label, num),
+                ])
             }
             unexpected => todo!("Unimplemented expression {:?}", unexpected),
         },
@@ -166,6 +175,40 @@ mod test {
             main:
                         mov     DWORD[_n_0_num1], 10
                         add     DWORD[_n_0_num1], 10
+                        mov     rax, 60
+                        xor     rdi, rdi
+                        syscall
+            "};
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    fn can_process_num_assignment_with_literal_and_variable() {
+        let mut program = Program::new("".to_string());
+        program.add_statement(NumDeclaration(
+            "num1".to_string(),
+            Some(Value(NumberLiteral(3))),
+        ));
+        program.add_statement(NumDeclaration("num2".to_string(), None));
+        program.add_statement(Assignment(
+            "num2".to_string(),
+            Operator(
+                Box::new(Value(NumberLiteral(10))),
+                Add,
+                Box::new(Value(Variable("num1".to_string()))),
+            ),
+        ));
+        let asm = generate_asm(program).unwrap();
+        let expected = indoc! {"
+            global main
+                        section .data
+            _n_0_num1   dd 3
+                        section .bss
+            _n_1_num2   resd 1
+                        section .text
+            main:
+                        mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
+                        add     DWORD[_n_1_num2], 10
                         mov     rax, 60
                         xor     rdi, rdi
                         syscall
