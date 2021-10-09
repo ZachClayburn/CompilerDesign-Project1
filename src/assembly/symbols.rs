@@ -37,7 +37,7 @@ impl SymbolTable {
         Ok(label)
     }
 
-    pub fn get_number_label(&mut self, var_name: &String) -> Result<&String> {
+    pub fn get_number_label(&self, var_name: &String) -> Result<&String> {
         match self.symbols.get(var_name) {
             Some(Symbol::Number(SymbolInfo { label })) => Ok(label),
             Some(Symbol::String(SymbolInfo { label: _ })) => Err(format!(

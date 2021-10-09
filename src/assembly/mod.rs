@@ -2,9 +2,10 @@ mod file;
 mod symbols;
 
 use self::{file::AsmFile, symbols::SymbolTable};
-use crate::parser::{Atom, Expression, Program, Statement};
+use crate::parser::{Atom, Expression, Op, Program, Statement};
 use Atom::*;
 use Expression::*;
+use Op::*;
 use Statement::*;
 
 type Result<T> = std::result::Result<T, String>;
@@ -25,11 +26,11 @@ pub fn generate_asm(program: Program) -> Result<String> {
                 let label = symbol_table.add_number(name)?;
                 asm_file.bss.push(format!("{:11} resd 1", label));
             }
-            Assignment(name, Value(NumberLiteral(value))) => {
+            Assignment(name, exp) => {
                 let label = symbol_table.get_number_label(&name)?;
-                asm_file
-                    .text
-                    .push(format!("            mov     DWORD[{}], {}", label, value));
+                let mut instructions =
+                    generate_expression_assignment_assembly(&label, &symbol_table, exp);
+                asm_file.text.append(&mut instructions);
             }
             unexpected => todo!("{:?}", unexpected),
         }
@@ -41,10 +42,34 @@ pub fn generate_asm(program: Program) -> Result<String> {
     Ok(format!("{}", asm_file))
 }
 
+fn generate_expression_assignment_assembly(
+    destination_label: &String,
+    symbol_table: &SymbolTable,
+    expression: Expression,
+) -> Vec<String> {
+    match expression {
+        Value(NumberLiteral(value)) => vec![format!(
+            "            mov     DWORD[{}], {}",
+            destination_label, value
+        )],
+        Operator(l_exp, Add, r_exp) => match (*l_exp, *r_exp) {
+            (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => {
+                vec![
+                    format!("            mov     DWORD[{}], {}", destination_label, lhs),
+                    format!("            add     DWORD[{}], {}", destination_label, rhs),
+                ]
+            }
+            unexpected => todo!("Unimplemented expression {:?}", unexpected),
+        },
+        unexpected => todo!("Unimplemented expression {:?}", unexpected),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use indoc::indoc;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn can_process_minimal_program() {
@@ -100,7 +125,7 @@ mod test {
     }
 
     #[test]
-    fn can_process_num_declaration_with_liteeral_assignment() {
+    fn can_process_num_declaration_with_literal_assignment() {
         let mut program = Program::new("program".to_string());
         program.add_statement(NumDeclaration(
             "num1".to_string(),
@@ -119,4 +144,36 @@ mod test {
             "};
         assert_eq!(asm, expected);
     }
+
+    #[test]
+    fn can_process_num_expression_assignment() {
+        let mut program = Program::new("".to_string());
+        program.add_statement(NumDeclaration("num1".to_string(), None));
+        program.add_statement(Assignment(
+            "num1".to_string(),
+            Operator(
+                Box::new(Value(NumberLiteral(10))),
+                Add,
+                Box::new(Value(NumberLiteral(10))),
+            ),
+        ));
+        let asm = generate_asm(program).unwrap();
+        let expected = indoc! {"
+            global main
+                        section .bss
+            _n_0_num1   resd 1
+                        section .text
+            main:
+                        mov     DWORD[_n_0_num1], 10
+                        add     DWORD[_n_0_num1], 10
+                        mov     rax, 60
+                        xor     rdi, rdi
+                        syscall
+            "};
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    #[ignore]
+    fn can_process_num_declaration_with_expression_assignment() {}
 }
