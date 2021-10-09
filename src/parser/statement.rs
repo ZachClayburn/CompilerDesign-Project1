@@ -6,7 +6,7 @@ use std::iter::Peekable;
 pub enum Statement {
     NumDeclaration(String, Option<Expression>),
     Assignment(String, Expression),
-    // NumAssigningDeclaration,
+    Write(Expression),
 }
 
 impl Parseable for Statement {
@@ -30,6 +30,14 @@ impl Parseable for Statement {
                     unexpected => process_bad_token(unexpected, "semicolon"),
                 }
             }
+            Some(Ok(Token::Write(_))) => {
+                let write_statement = Ok(Statement::Write(Expression::parse(scanner)?));
+
+                match scanner.next() {
+                    Some(Ok(Token::Semicolon(_))) => write_statement,
+                    unexpected => process_bad_token(unexpected, "semicolon"),
+                }
+            },
             unexpected => process_bad_token(unexpected, "Num"),
         }
     }
@@ -97,6 +105,20 @@ mod test {
             "a".to_string(),
             Some(Expression::Value(Atom::NumberLiteral(1))),
         );
+        assert_eq!(output, expected);
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
+    }
+
+    #[test]
+    fn can_parse_write_with_string_literal() {
+        let mut scan = Scanner::from_text(r#"write "hello.txt";"#).peekable();
+        let output = Statement::parse(&mut scan).unwrap();
+        let expected = Statement::Write(Expression::Value(Atom::StringLiteral(
+            "hello.txt".to_string(),
+        )));
         assert_eq!(output, expected);
         assert!(
             matches!(scan.next(), None),
