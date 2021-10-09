@@ -3,6 +3,9 @@ mod symbols;
 
 use self::{file::AsmFile, symbols::SymbolTable};
 use crate::parser::{Atom, Expression, Program, Statement};
+use Atom::*;
+use Expression::*;
+use Statement::*;
 
 type Result<T> = std::result::Result<T, String>;
 
@@ -14,17 +17,21 @@ pub fn generate_asm(program: Program) -> Result<String> {
     let mut symbol_table = SymbolTable::new();
     for statement in program.statements {
         match statement {
-            Statement::NumDeclaration(name, None) => {
+            NumDeclaration(name, Some(Value(NumberLiteral(num_value)))) => {
+                let label = symbol_table.add_number(name)?;
+                asm_file.data.push(format!("{:11} dd {}", label, num_value));
+            }
+            NumDeclaration(name, None) => {
                 let label = symbol_table.add_number(name)?;
                 asm_file.bss.push(format!("{:11} resd 1", label));
             }
-            Statement::Assignment(name, Expression::Value(Atom::NumberLiteral(value))) => {
+            Assignment(name, Value(NumberLiteral(value))) => {
                 let label = symbol_table.get_number_label(&name)?;
                 asm_file
                     .text
                     .push(format!("            mov     DWORD[{}], {}", label, value));
             }
-            _ => todo!(),
+            unexpected => todo!("{:?}", unexpected),
         }
     }
     // Set up call to exit
@@ -37,7 +44,6 @@ pub fn generate_asm(program: Program) -> Result<String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parser::Statement;
     use indoc::indoc;
 
     #[test]
@@ -58,7 +64,7 @@ mod test {
     #[test]
     fn can_process_program_with_uninitialized_num() {
         let mut program = Program::new("program".to_string());
-        program.add_statement(Statement::NumDeclaration("num1".to_string(), None));
+        program.add_statement(NumDeclaration("num1".to_string(), None));
         let asm = generate_asm(program).unwrap();
         let expected = indoc! {"
             global main
@@ -76,11 +82,8 @@ mod test {
     #[test]
     fn can_process_program_with_literal_assignment() {
         let mut program = Program::new("".to_string());
-        program.add_statement(Statement::NumDeclaration("num1".to_string(), None));
-        program.add_statement(Statement::Assignment(
-            "num1".to_string(),
-            Expression::Value(Atom::NumberLiteral(10)),
-        ));
+        program.add_statement(NumDeclaration("num1".to_string(), None));
+        program.add_statement(Assignment("num1".to_string(), Value(NumberLiteral(10))));
         let asm = generate_asm(program).unwrap();
         let expected = indoc! {"
             global main
@@ -89,6 +92,27 @@ mod test {
                         section .text
             main:
                         mov     DWORD[_n_0_num1], 10
+                        mov     rax, 60
+                        xor     rdi, rdi
+                        syscall
+            "};
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    fn can_process_num_declaration_with_liteeral_assignment() {
+        let mut program = Program::new("program".to_string());
+        program.add_statement(NumDeclaration(
+            "num1".to_string(),
+            Some(Value(NumberLiteral(3))),
+        ));
+        let asm = generate_asm(program).unwrap();
+        let expected = indoc! {"
+            global main
+                        section .data
+            _n_0_num1   dd 3
+                        section .text
+            main:
                         mov     rax, 60
                         xor     rdi, rdi
                         syscall
