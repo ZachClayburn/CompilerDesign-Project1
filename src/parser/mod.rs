@@ -137,4 +137,63 @@ mod test {
         expected.add_statement(Write(Value(Variable("num3".to_string()))));
         assert_eq!(ast, expected);
     }
+
+    #[test]
+    fn can_properly_parse_project_basics_new_file() {
+        let mut path = get_test_dir();
+        path.push("basics-new.txt");
+        path.set_extension("txt");
+        let scan = Scanner::from_file(&path.into_os_string().into_string().unwrap())
+            .unwrap()
+            .peekable();
+        let ast = parse(scan).unwrap();
+        let mut expected = Program::new("basicsExample_new".to_string());
+
+        expected.add_statement(NumDeclaration(
+            "value3".to_string(),
+            Some(Value(NumberLiteral(3))),
+        ));
+
+        expected.add_statement(NumDeclaration(
+            "addresult".to_string(),
+            Some(Operator(
+                Box::new(Value(NumberLiteral(10))),
+                Add,
+                Box::new(Value(Variable("value3".to_string()))),
+            )),
+        ));
+        expected.add_statement(Write(Value(Variable("addresult".to_string()))));
+
+        expected.add_statement(NumDeclaration(
+            "mulresult".to_string(),
+            Some(Operator(
+                Box::new(Value(NumberLiteral(10))),
+                Times,
+                Box::new(Value(Variable("value3".to_string()))),
+            )),
+        ));
+        expected.add_statement(Write(Value(Variable("mulresult".to_string()))));
+
+        expected.add_statement(NumDeclaration(
+            "subresult".to_string(),
+            Some(Operator(
+                Box::new(Value(Variable("value3".to_string()))),
+                Subtract,
+                Box::new(Value(NumberLiteral(10))),
+            )),
+        ));
+        expected.add_statement(Write(Value(Variable("subresult".to_string()))));
+
+        expected.add_statement(NumDeclaration(
+            "expresult".to_string(),
+            Some(Operator(
+                Box::new(Value(NumberLiteral(10))),
+                Power,
+                Box::new(Value(Variable("value3".to_string()))),
+            )),
+        ));
+        expected.add_statement(Write(Value(Variable("expresult".to_string()))));
+
+        assert_eq!(ast, expected);
+    }
 }

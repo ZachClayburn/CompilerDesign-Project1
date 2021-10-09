@@ -1,0 +1,22 @@
+program basicsExample_new;
+     begin
+        /* For this assignment, only worry about preparing yourself for basic arithmetic
+           and various spacing issues, commenting issues, and writing results
+        */
+        //A comment may be on a single line or 
+        num value3 = 3;
+        
+        num addresult = 10 + value3;
+        write addresult;
+               
+        num mulresult=10 * value3;   // test more spaces
+        write mulresult;     
+        
+        num subresult = value3 -10;  // test spaces
+        write subresult;     
+        
+        num expresult = 10 ^ value3;
+        write expresult;
+        // The example assembly has scanf behavior, you don't need that yet
+        
+    end. 
