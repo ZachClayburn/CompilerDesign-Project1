@@ -68,7 +68,10 @@ mod test {
         let mut scan = Scanner::from_text("num abcd;").peekable();
         let assignment = Statement::parse(&mut scan).unwrap();
         assert!(matches!(assignment, Statement::NumDeclaration(name, None) if name == "abcd"));
-        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
     }
 
     #[test]
@@ -80,7 +83,10 @@ mod test {
             Expression::Value(Atom::StringLiteral("1".to_string())),
         );
         assert_eq!(output, expected);
-        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
     }
 
     #[test]
@@ -92,6 +98,9 @@ mod test {
             Some(Expression::Value(Atom::NumberLiteral(1))),
         );
         assert_eq!(output, expected);
-        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
     }
 }

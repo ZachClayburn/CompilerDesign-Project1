@@ -123,6 +123,9 @@ mod tests {
         let mut expected = Program::new("test_program".to_string());
         expected.add_statement(Statement::NumDeclaration("a".to_string(), None));
         assert_eq!(tree, expected);
-        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
     }
 }

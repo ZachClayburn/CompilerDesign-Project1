@@ -1,6 +1,5 @@
-use super::{process_bad_token, Parseable, Result};
-use crate::scanner::{Scanner, Token};
-use std::iter::Peekable;
+use super::{process_bad_token, Parseable};
+use crate::scanner::Token;
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
@@ -47,9 +46,51 @@ impl Parseable for Expression {
                 start: _,
                 stop: _,
             })) => Expression::Value(Atom::StringLiteral(content)),
-            unexpected => return process_bad_token(unexpected, "number"),
+            unexpected => return process_bad_token(unexpected, "number or string literal"),
         };
-        Ok(exp)
+        match scanner.peek() {
+            Some(Ok(Token::Pow(_))) => {
+                scanner.next();
+                Ok(Expression::Operator(
+                    Box::new(exp),
+                    Op::Power,
+                    Box::new(Expression::parse(scanner)?),
+                ))
+            }
+            Some(Ok(Token::Star(_))) => {
+                scanner.next();
+                Ok(Expression::Operator(
+                    Box::new(exp),
+                    Op::Times,
+                    Box::new(Expression::parse(scanner)?),
+                ))
+            }
+            Some(Ok(Token::Div(_))) => {
+                scanner.next();
+                Ok(Expression::Operator(
+                    Box::new(exp),
+                    Op::Divide,
+                    Box::new(Expression::parse(scanner)?),
+                ))
+            }
+            Some(Ok(Token::Plus(_))) => {
+                scanner.next();
+                Ok(Expression::Operator(
+                    Box::new(exp),
+                    Op::Add,
+                    Box::new(Expression::parse(scanner)?),
+                ))
+            }
+            Some(Ok(Token::Minus(_))) => {
+                scanner.next();
+                Ok(Expression::Operator(
+                    Box::new(exp),
+                    Op::Subtract,
+                    Box::new(Expression::parse(scanner)?),
+                ))
+            }
+            _ => Ok(exp),
+        }
     }
 }
 
@@ -57,6 +98,7 @@ impl Parseable for Expression {
 mod test {
 
     use super::*;
+    use crate::scanner::Scanner;
 
     #[test]
     fn can_parse_number_literal() {
@@ -64,7 +106,10 @@ mod test {
         let output = Expression::parse(&mut scan).unwrap();
         let expected = Expression::Value(Atom::NumberLiteral(123));
         assert_eq!(output, expected);
-        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
     }
 
     #[test]
@@ -83,6 +128,89 @@ mod test {
         let output = Expression::parse(&mut scan).unwrap();
         let expected = Expression::Value(Atom::StringLiteral("123".to_string()));
         assert_eq!(output, expected);
-        assert!(matches!(scan.next(), None), "Tokens still left in the scanner!");
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
+    }
+
+    #[test]
+    fn can_parse_litteral_addition() {
+        let mut scan = Scanner::from_text("1 + 2").peekable();
+        let output = Expression::parse(&mut scan).unwrap();
+        let expected = Expression::Operator(
+            Box::new(Expression::Value(Atom::NumberLiteral(1))),
+            Op::Add,
+            Box::new(Expression::Value(Atom::NumberLiteral(2))),
+        );
+        assert_eq!(output, expected);
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
+    }
+
+    #[test]
+    fn can_parse_litteral_subtraction() {
+        let mut scan = Scanner::from_text("1 - 2").peekable();
+        let output = Expression::parse(&mut scan).unwrap();
+        let expected = Expression::Operator(
+            Box::new(Expression::Value(Atom::NumberLiteral(1))),
+            Op::Subtract,
+            Box::new(Expression::Value(Atom::NumberLiteral(2))),
+        );
+        assert_eq!(output, expected);
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
+    }
+
+    #[test]
+    fn can_parse_litteral_multiplication() {
+        let mut scan = Scanner::from_text("1 * 2").peekable();
+        let output = Expression::parse(&mut scan).unwrap();
+        let expected = Expression::Operator(
+            Box::new(Expression::Value(Atom::NumberLiteral(1))),
+            Op::Times,
+            Box::new(Expression::Value(Atom::NumberLiteral(2))),
+        );
+        assert_eq!(output, expected);
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
+    }
+
+    #[test]
+    fn can_parse_litteral_division() {
+        let mut scan = Scanner::from_text("1 / 2").peekable();
+        let output = Expression::parse(&mut scan).unwrap();
+        let expected = Expression::Operator(
+            Box::new(Expression::Value(Atom::NumberLiteral(1))),
+            Op::Divide,
+            Box::new(Expression::Value(Atom::NumberLiteral(2))),
+        );
+        assert_eq!(output, expected);
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
+    }
+
+    #[test]
+    fn can_parse_litteral_power() {
+        let mut scan = Scanner::from_text("1 ^ 2").peekable();
+        let output = Expression::parse(&mut scan).unwrap();
+        let expected = Expression::Operator(
+            Box::new(Expression::Value(Atom::NumberLiteral(1))),
+            Op::Power,
+            Box::new(Expression::Value(Atom::NumberLiteral(2))),
+        );
+        assert_eq!(output, expected);
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
     }
 }
