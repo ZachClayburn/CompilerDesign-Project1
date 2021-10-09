@@ -46,7 +46,13 @@ impl Parseable for Expression {
                 start: _,
                 stop: _,
             })) => Expression::Value(Atom::StringLiteral(content)),
-            unexpected => return process_bad_token(unexpected, "number or string literal"),
+            Some(Ok(Token::Identifier {
+                content,
+                start: _,
+                stop: _,
+            })) => Expression::Value(Atom::Variable(content)),
+
+            unexpected => return process_bad_token(unexpected, "number, variable, or string literal"),
         };
         match scanner.peek() {
             Some(Ok(Token::Pow(_))) => {
@@ -134,6 +140,17 @@ mod test {
         );
     }
 
+    #[test]
+    fn can_parse_variables() {
+        let mut scan = Scanner::from_text("num1").peekable();
+        let output = Expression::parse(&mut scan).unwrap();
+        let expected = Expression::Value(Atom::Variable("num1".to_string()));
+        assert_eq!(output, expected);
+        assert!(
+            matches!(scan.next(), None),
+            "Tokens still left in the scanner!"
+        );
+    }
     #[test]
     fn can_parse_litteral_addition() {
         let mut scan = Scanner::from_text("1 + 2").peekable();
