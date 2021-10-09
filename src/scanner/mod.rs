@@ -222,6 +222,7 @@ mod tests {
 
     use super::*;
     use indoc::indoc;
+    use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
     fn get_test_dir() -> PathBuf {
