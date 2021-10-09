@@ -22,15 +22,28 @@ pub fn generate_asm(program: Program) -> Result<String> {
                 let label = symbol_table.add_number(name)?;
                 asm_file.data.push(format!("{:11} dd {}", label, num_value));
             }
-            NumDeclaration(name, None) => {
+            NumDeclaration(name, init) => {
                 let label = symbol_table.add_number(name)?;
                 asm_file.bss.push(format!("{:11} resd 1", label));
+                if let Some(exp) = init {
+                    asm_file
+                        .text
+                        .append(&mut generate_expression_assignment_assembly(
+                            &label,
+                            &symbol_table,
+                            exp,
+                        )?);
+                }
             }
             Assignment(name, exp) => {
                 let label = symbol_table.get_number_label(&name)?;
-                let mut instructions =
-                    generate_expression_assignment_assembly(&label, &symbol_table, exp)?;
-                asm_file.text.append(&mut instructions);
+                asm_file
+                    .text
+                    .append(&mut generate_expression_assignment_assembly(
+                        &label,
+                        &symbol_table,
+                        exp,
+                    )?);
             }
             unexpected => todo!("{:?}", unexpected),
         }
@@ -217,6 +230,35 @@ mod test {
     }
 
     #[test]
-    #[ignore]
-    fn can_process_num_declaration_with_expression_assignment() {}
+    fn can_process_num_declaration_with_expression_assignment() {
+        let mut program = Program::new("program".to_string());
+        program.add_statement(NumDeclaration(
+            "num1".to_string(),
+            Some(Value(NumberLiteral(3))),
+        ));
+        program.add_statement(NumDeclaration(
+            "num2".to_string(),
+            Some(Operator(
+                Box::new(Value(Variable("num1".to_string()))),
+                Add,
+                Box::new(Value(NumberLiteral(10))),
+            )),
+        ));
+        let asm = generate_asm(program).unwrap();
+        let expected = indoc! {"
+            global main
+                        section .data
+            _n_0_num1   dd 3
+                        section .bss
+            _n_1_num2   resd 1
+                        section .text
+            main:
+                        mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
+                        add     DWORD[_n_1_num2], 10
+                        mov     rax, 60
+                        xor     rdi, rdi
+                        syscall
+            "};
+        assert_eq!(asm, expected);
+    }
 }
