@@ -100,15 +100,17 @@ fn generate_expression_assignment_assembly(
             };
             match (*l_exp, *r_exp) {
                 (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
-                    format!("mov [qword {}], {}", dest_label, lhs),
-                    format!("{} [qword {}], {}", op_instruction, dest_label, rhs),
+                        format!("mov eax, {}", lhs),
+                        format!("{} eax, {}", op_instruction, rhs),
+                        format!("mov [qword {}], eax", dest_label),
                 ]),
                 (Value(NumberLiteral(num)), Value(Variable(var)))
                 | (Value(Variable(var)), Value(NumberLiteral(num))) => {
                     let var_label = symbol_table.get_number_label(&var)?;
                     Ok(vec![
-                        format!("mov [qword {}], [qword {}]", dest_label, var_label),
-                        format!("{} [qword {}], {}", op_instruction, dest_label, num),
+                        format!("mov eax, [qword {}]", var_label),
+                        format!("{} eax, {}", op_instruction, num),
+                        format!("mov [qword {}], eax", dest_label),
                     ])
                 }
                 unexpected => todo!("{:?}", unexpected),
@@ -354,8 +356,9 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     [qword _n_0_num1], 10
-                            add     [qword _n_0_num1], 10
+                            mov     eax, 10
+                            add     eax, 10
+                            mov     [qword _n_0_num1], eax
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -409,8 +412,9 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     [qword _n_1_num2], [qword _n_0_num1]
-                            add     [qword _n_1_num2], 10
+                            mov     eax, [qword _n_0_num1]
+                            add     eax, 10
+                            mov     [qword _n_1_num2], eax
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -463,8 +467,9 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     [qword _n_1_num2], [qword _n_0_num1]
-                            add     [qword _n_1_num2], 10
+                            mov     eax, [qword _n_0_num1]
+                            add     eax, 10
+                            mov     [qword _n_1_num2], eax
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -561,8 +566,9 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     [qword _n_1_num2], [qword _n_0_num1]
-                            imul    [qword _n_1_num2], 10
+                            mov     eax, [qword _n_0_num1]
+                            imul    eax, 10
+                            mov     [qword _n_1_num2], eax
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -615,8 +621,9 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     [qword _n_1_num2], [qword _n_0_num1]
-                            sub     [qword _n_1_num2], 10
+                            mov     eax, [qword _n_0_num1]
+                            sub     eax, 10
+                            mov     [qword _n_1_num2], eax
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
