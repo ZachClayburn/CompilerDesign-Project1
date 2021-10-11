@@ -71,7 +71,7 @@ pub fn generate_asm(program: Program) -> Result<String> {
                     let label = symbol_table.get_number_label(&var_name)?;
                     asm_file.text.push(format!("mov rax, [qword {}]", label));
                     asm_file.text.push("call printInt".into());
-                },
+                }
                 unexpected => todo!("{:?}", unexpected),
             },
         }
@@ -90,21 +90,30 @@ fn generate_expression_assignment_assembly(
 ) -> Result<Vec<String>> {
     match expression {
         Value(NumberLiteral(value)) => Ok(vec![format!("mov [qword {}], {}", dest_label, value)]),
-        Operator(l_exp, Add, r_exp) => match (*l_exp, *r_exp) {
-            (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
-                format!("mov [qword {}], {}", dest_label, lhs),
-                format!("add [qword {}], {}", dest_label, rhs),
-            ]),
-            (Value(NumberLiteral(num)), Value(Variable(var)))
-            | (Value(Variable(var)), Value(NumberLiteral(num))) => {
-                let var_label = symbol_table.get_number_label(&var)?;
-                Ok(vec![
-                    format!("mov [qword {}], [qword {}]", dest_label, var_label),
-                    format!("add [qword {}], {}", dest_label, num),
-                ])
+        Operator(l_exp, op, r_exp) => {
+            let op_instruction = match op {
+                Power => todo!(),
+                Times => "imul",
+                Divide => todo!(),
+                Add => "add",
+                Subtract => "sub",
+            };
+            match (*l_exp, *r_exp) {
+                (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
+                    format!("mov [qword {}], {}", dest_label, lhs),
+                    format!("{} [qword {}], {}", op_instruction, dest_label, rhs),
+                ]),
+                (Value(NumberLiteral(num)), Value(Variable(var)))
+                | (Value(Variable(var)), Value(NumberLiteral(num))) => {
+                    let var_label = symbol_table.get_number_label(&var)?;
+                    Ok(vec![
+                        format!("mov [qword {}], [qword {}]", dest_label, var_label),
+                        format!("{} [qword {}], {}", op_instruction, dest_label, num),
+                    ])
+                }
+                unexpected => todo!("{:?}", unexpected),
             }
-            unexpected => todo!("{:?}", unexpected),
-        },
+        }
         unexpected => todo!("{:?}", unexpected),
     }
 }
@@ -500,6 +509,114 @@ mod test {
                             mov     [qword _n_0_num1], 10
                             mov     rax, [qword _n_0_num1]
                             call    printInt
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    fn can_process_multiplication_expression() {
+        let mut program = Program::new("program".to_string());
+        program.add_statement(NumDeclaration(
+            "num1".to_string(),
+            Some(Value(NumberLiteral(3))),
+        ));
+        program.add_statement(NumDeclaration(
+            "num2".to_string(),
+            Some(Operator(
+                Box::new(Value(Variable("num1".to_string()))),
+                Times,
+                Box::new(Value(NumberLiteral(10))),
+            )),
+        ));
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
+            global main
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .data
+            _n_0_num1       dq 3
+                            section .bss
+            _n_1_num2       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            main:
+                            mov     [qword _n_1_num2], [qword _n_0_num1]
+                            imul    [qword _n_1_num2], 10
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    fn can_process_subtracation_expression() {
+        let mut program = Program::new("program".to_string());
+        program.add_statement(NumDeclaration(
+            "num1".to_string(),
+            Some(Value(NumberLiteral(3))),
+        ));
+        program.add_statement(NumDeclaration(
+            "num2".to_string(),
+            Some(Operator(
+                Box::new(Value(Variable("num1".to_string()))),
+                Subtract,
+                Box::new(Value(NumberLiteral(10))),
+            )),
+        ));
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
+            global main
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .data
+            _n_0_num1       dq 3
+                            section .bss
+            _n_1_num2       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            main:
+                            mov     [qword _n_1_num2], [qword _n_0_num1]
+                            sub     [qword _n_1_num2], 10
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
