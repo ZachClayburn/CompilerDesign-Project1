@@ -1,0 +1,4 @@
+program minimalPrint; begin
+num a = 42;
+write a;
+end.

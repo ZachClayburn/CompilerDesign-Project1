@@ -1,3 +1,6 @@
+; Note that this is an EXAMPLE OF ONE KIND OF SOLUTION
+; You do not need to mimic this code, I only provided it as one clean code
+; approach.  You only need to support a matching functional output with your assembly.   
 ; You can build this on Linux with:
 ; nasm -f elf64 basiclinux64.asm
 ; gcc basiclinux.o
@@ -33,10 +36,10 @@ s2              db "The number is:",0x0d,0x0a,0
 ;-----------------------------
 section .bss
 
-addResult       resd    1       ; an int
-mulResult       resd    1       ; an int
-subResult       resd    1       ; an int
-expResult       resd    1       ; an int
+addResult       resq    1       ; an int
+mulResult       resq    1       ; an int
+subResult       resq    1       ; an int
+expResult       resq    1       ; an int
 myNum           resq    1       ;the int we are reading in
 
 ;-----------------------------
@@ -47,6 +50,7 @@ printInt:
         ; We need to call printf, but we are using rax, rbx, and rcx.  printf
         ; may destroy rax and rcx so we will save these before the call and
         ; restore them afterwards.
+        push    rsp                     ; Avoid stack alignment isses
         push    rbp                     ; Avoid stack alignment isses
         push    rax                     ; save rax and rcx
         push    rcx
@@ -59,12 +63,14 @@ printInt:
         pop     rcx                     ; restore rcx
         pop     rax                     ; restore rax
         pop     rbp                     ; Avoid stack alignment issues
+        pop     rsp                     ; Avoid stack alignment isses
         ret
 
 printString:
         ; We need to call printf, but we are using rax, rbx, and rcx.  printf
         ; may destroy rax and rcx so we will save these before the call and
         ; restore them afterwards.
+        push    rsp                     ; Avoid stack alignment isses
         push    rbp                     ; Avoid stack alignment issues
         push    rax                     ; save rax and rcx
         push    rcx
@@ -77,6 +83,7 @@ printString:
         pop     rcx                     ; restore rcx
         pop     rax                     ; restore rax
         pop     rbp                     ; Avoid stack alignment issues
+        pop     rsp                     ; Avoid stack alignment issues
         ret
 
 
@@ -117,16 +124,18 @@ exp_done:
         mov     [qword expResult], rax
 
         ; Get an int from the user
-        ; mov     rax, s1
-        ; call    printString
-        ; mov     rdi, int_format
-        ; mov     rsi, myNum
-        ; xor     rax, rax
-        ; push    rbp
-        ; call    [rel scanf wrt ..got]
-        ; pop     rbp
-        ; mov     rax, [qword myNum]
-        ; call    printInt
+        mov     rax, s1
+        ; push    rsp
+        call    printString
+        ; pop     rsp
+        mov     rdi, int_format
+        mov     rsi, myNum
+        xor     rax, rax
+        push    rbp
+        call    [rel scanf wrt ..got]
+        pop     rbp
+        mov     rax, [qword myNum]
+        call    printInt
 
 
 my_exit:
