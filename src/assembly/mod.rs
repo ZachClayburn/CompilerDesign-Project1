@@ -93,8 +93,7 @@ fn generate_expression_assignment_assembly(
         Operator(l_exp, Power, r_exp) => {
             let loop_label = symbol_table.get_new_jump_label();
             let break_label = symbol_table.get_new_jump_label();
-            let operands = [*l_exp, *r_exp];
-            let [base, exponent] = operands.map(|exp| -> Result<String> {
+            let [lhs, rhs] = [*l_exp, *r_exp].map(|exp| -> Result<String> {
                 match exp {
                     Value(NumberLiteral(value)) => Ok(format!("{}", value)),
                     Value(Variable(name)) => {
@@ -105,9 +104,9 @@ fn generate_expression_assignment_assembly(
                 }
             });
             Ok(vec![
-                format!("mov rbx, {}", base?),
+                format!("mov rbx, {}", lhs?),
                 "mov rax, rbx".into(),
-                format!("mov rdx, {}", exponent?),
+                format!("mov rdx, {}", rhs?),
                 "mov rdi, 1".into(),
                 format!("{}:", loop_label),
                 "inc rdi".into(),
@@ -120,29 +119,49 @@ fn generate_expression_assignment_assembly(
             ])
         }
         Operator(l_exp, op, r_exp) => {
-            let op_instruction = match op {
-                Power => todo!(),
-                Times => "imul",
-                Divide => todo!(),
-                Add => "add",
-                Subtract => "sub",
-            };
-            match (*l_exp, *r_exp) {
-                (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
-                    format!("mov eax, {}", lhs),
-                    format!("{} eax, {}", op_instruction, rhs),
-                    format!("mov [qword {}], eax", dest_label),
-                ]),
-                (Value(NumberLiteral(num)), Value(Variable(var)))
-                | (Value(Variable(var)), Value(NumberLiteral(num))) => {
-                    let var_label = symbol_table.get_number_label(&var)?;
+            let [lhs, rhs] = [*l_exp, *r_exp].map(|exp| -> Result<String> {
+                match exp {
+                    Value(NumberLiteral(value)) => Ok(format!("{}", value)),
+                    Value(Variable(name)) => {
+                        let var_label = symbol_table.get_number_label(&name)?;
+                        Ok(format!("[qword {}]", var_label))
+                    }
+                    unexpected => todo!("{:?}", unexpected),
+                }
+            });
+            match op {
+                Power => {
+                    let loop_label = symbol_table.get_new_jump_label();
+                    let break_label = symbol_table.get_new_jump_label();
                     Ok(vec![
-                        format!("mov eax, [qword {}]", var_label),
-                        format!("{} eax, {}", op_instruction, num),
+                        format!("mov rbx, {}", lhs?),
+                        "mov rax, rbx".into(),
+                        format!("mov rdx, {}", rhs?),
+                        "mov rdi, 1".into(),
+                        format!("{}:", loop_label),
+                        "inc rdi".into(),
+                        "cmp rdx, rdi".into(),
+                        "jl .L2".into(),
+                        "imul rax, rbx".into(),
+                        "jmp .L1".into(),
+                        format!("{}:", break_label),
+                        format!("mov [qword {}], rax", dest_label),
+                    ])
+                }
+                Divide => todo!(),
+                Times | Add | Subtract => {
+                    let instruction = match op {
+                        Times => "imul",
+                        Add => "add",
+                        Subtract => "sub",
+                        Power | Divide => unreachable!(),
+                    };
+                    Ok(vec![
+                        format!("mov eax, {}", lhs?),
+                        format!("{} eax, {}", instruction, rhs?),
                         format!("mov [qword {}], eax", dest_label),
                     ])
                 }
-                unexpected => todo!("{:?}", unexpected),
             }
         }
         unexpected => todo!("{:?}", unexpected),
@@ -441,8 +460,8 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     eax, [qword _n_0_num1]
-                            add     eax, 10
+                            mov     eax, 10
+                            add     eax, [qword _n_0_num1]
                             mov     [qword _n_1_num2], eax
                             mov     rax, 60
                             xor     rdi, rdi
