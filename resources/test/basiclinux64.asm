@@ -109,7 +109,6 @@ main:
 
         ; Run an exponent loop (10^3)
         xor     rdi, rdi                               ; clear out the counter
-        mov     rcx, 1
         mov     rax, [qword value3]                    ; Computing 10^3
         mov     rdx, rax
 exp_start:

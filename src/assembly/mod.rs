@@ -50,8 +50,8 @@ pub fn generate_asm(program: Program) -> Result<String> {
                     asm_file
                         .text
                         .append(&mut generate_expression_assignment_assembly(
-                            &label,
-                            &symbol_table,
+                            label,
+                            &mut symbol_table,
                             exp,
                         )?);
                 }
@@ -61,8 +61,8 @@ pub fn generate_asm(program: Program) -> Result<String> {
                 asm_file
                     .text
                     .append(&mut generate_expression_assignment_assembly(
-                        &label,
-                        &symbol_table,
+                        label,
+                        &mut symbol_table,
                         exp,
                     )?);
             }
@@ -84,12 +84,41 @@ pub fn generate_asm(program: Program) -> Result<String> {
 }
 
 fn generate_expression_assignment_assembly(
-    dest_label: &String,
-    symbol_table: &SymbolTable,
+    dest_label: String,
+    symbol_table: &mut SymbolTable,
     expression: Expression,
 ) -> Result<Vec<String>> {
     match expression {
         Value(NumberLiteral(value)) => Ok(vec![format!("mov [qword {}], {}", dest_label, value)]),
+        Operator(l_exp, Power, r_exp) => {
+            let loop_label = symbol_table.get_new_jump_label();
+            let break_label = symbol_table.get_new_jump_label();
+            let operands = [*l_exp, *r_exp];
+            let [base, exponent] = operands.map(|exp| -> Result<String> {
+                match exp {
+                    Value(NumberLiteral(value)) => Ok(format!("{}", value)),
+                    Value(Variable(name)) => {
+                        let var_label = symbol_table.get_number_label(&name)?;
+                        Ok(format!("[qword {}]", var_label))
+                    }
+                    unexpected => todo!("{:?}", unexpected),
+                }
+            });
+            Ok(vec![
+                format!("mov rbx, {}", base?),
+                "mov rax, rbx".into(),
+                format!("mov rdx, {}", exponent?),
+                "mov rdi, 1".into(),
+                format!("{}:", loop_label),
+                "inc rdi".into(),
+                "cmp rdx, rdi".into(),
+                "jl .L2".into(),
+                "imul rax, rbx".into(),
+                "jmp .L1".into(),
+                format!("{}:", break_label),
+                format!("mov [qword {}], rax", dest_label),
+            ])
+        }
         Operator(l_exp, op, r_exp) => {
             let op_instruction = match op {
                 Power => todo!(),
@@ -100,9 +129,9 @@ fn generate_expression_assignment_assembly(
             };
             match (*l_exp, *r_exp) {
                 (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
-                        format!("mov eax, {}", lhs),
-                        format!("{} eax, {}", op_instruction, rhs),
-                        format!("mov [qword {}], eax", dest_label),
+                    format!("mov eax, {}", lhs),
+                    format!("{} eax, {}", op_instruction, rhs),
+                    format!("mov [qword {}], eax", dest_label),
                 ]),
                 (Value(NumberLiteral(num)), Value(Variable(var)))
                 | (Value(Variable(var)), Value(NumberLiteral(num))) => {
@@ -624,6 +653,70 @@ mod test {
                             mov     eax, [qword _n_0_num1]
                             sub     eax, 10
                             mov     [qword _n_1_num2], eax
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    fn can_process_power_expressions() {
+        let mut program = Program::new("program".to_string());
+        program.add_statement(NumDeclaration(
+            "num1".to_string(),
+            Some(Value(NumberLiteral(3))),
+        ));
+        program.add_statement(NumDeclaration(
+            "num2".to_string(),
+            Some(Operator(
+                Box::new(Value(Variable("num1".to_string()))),
+                Power,
+                Box::new(Value(NumberLiteral(10))),
+            )),
+        ));
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
+            global main
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .data
+            _n_0_num1       dq 3
+                            section .bss
+            _n_1_num2       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            main:
+                            mov     rbx, [qword _n_0_num1]
+                            mov     rax, rbx
+                            mov     rdx, 10
+                            mov     rdi, 1
+            .L1:      
+                            inc     rdi
+                            cmp     rdx, rdi
+                            jl      .L2
+                            imul    rax, rbx
+                            jmp     .L1
+            .L2:
+                            mov     [qword _n_1_num2], rax
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
