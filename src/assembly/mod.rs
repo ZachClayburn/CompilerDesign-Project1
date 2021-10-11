@@ -13,18 +13,37 @@ type Result<T> = std::result::Result<T, String>;
 pub fn generate_asm(program: Program) -> Result<String> {
     let mut asm_file = AsmFile::new();
     asm_file.exports.push("global main".into());
-    asm_file.text.push("main:".into());
+    asm_file.imports.push("extern printf".into());
 
+    // Add printInt block
+    asm_file.text.push("printInt:".into());
+    asm_file.text.push("push rsp".into());
+    asm_file.text.push("push rbp".into());
+    asm_file.text.push("push rax".into());
+    asm_file.text.push("push rcx".into());
+    asm_file.text.push("mov rdi, numberPrinter".into());
+    asm_file.text.push("mov rsi, rax".into());
+    asm_file.text.push("xor rax, rax".into());
+    asm_file.text.push("call [rel printf wrt ..got]".into());
+    asm_file.text.push("pop rcx".into());
+    asm_file.text.push("pop rax".into());
+    asm_file.text.push("pop rbp".into());
+    asm_file.text.push("pop rsp".into());
+    asm_file.text.push("ret".into());
+
+    asm_file.rodata.push(r#"numberPrinter db "%d",0x0d,0x0a,0"#.into());
+
+    asm_file.text.push("main:".into());
     let mut symbol_table = SymbolTable::new();
     for statement in program.statements {
         match statement {
             NumDeclaration(name, Some(Value(NumberLiteral(num_value)))) => {
                 let label = symbol_table.add_number(name)?;
-                asm_file.data.push(format!("{:11} dd {}", label, num_value));
+                asm_file.data.push(format!("{} dq {}", label, num_value));
             }
             NumDeclaration(name, init) => {
                 let label = symbol_table.add_number(name)?;
-                asm_file.bss.push(format!("{:11} resd 1", label));
+                asm_file.bss.push(format!("{} resq 1", label));
                 if let Some(exp) = init {
                     asm_file
                         .text
@@ -45,13 +64,20 @@ pub fn generate_asm(program: Program) -> Result<String> {
                         exp,
                     )?);
             }
-            unexpected => todo!("{:?}", unexpected),
+            Write(exp) => match exp {
+                Value(Variable(var_name)) => {
+                    let label = symbol_table.get_number_label(&var_name)?;
+                    asm_file.text.push(format!("mov rax, [qword {}]", label));
+                    asm_file.text.push("call printInt".into());
+                },
+                unexpected => todo!("{:?}", unexpected),
+            },
         }
     }
     // Set up call to exit
-    asm_file.text.push("            mov     rax, 60".into());
-    asm_file.text.push("            xor     rdi, rdi".into());
-    asm_file.text.push("            syscall".into());
+    asm_file.text.push("mov rax, 60".into());
+    asm_file.text.push("xor rdi, rdi".into());
+    asm_file.text.push("syscall".into());
     Ok(format!("{}", asm_file))
 }
 
@@ -61,24 +87,18 @@ fn generate_expression_assignment_assembly(
     expression: Expression,
 ) -> Result<Vec<String>> {
     match expression {
-        Value(NumberLiteral(value)) => Ok(vec![format!(
-            "            mov     DWORD[{}], {}",
-            dest_label, value
-        )]),
+        Value(NumberLiteral(value)) => Ok(vec![format!("mov DWORD[{}], {}", dest_label, value)]),
         Operator(l_exp, Add, r_exp) => match (*l_exp, *r_exp) {
             (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
-                format!("            mov     DWORD[{}], {}", dest_label, lhs),
-                format!("            add     DWORD[{}], {}", dest_label, rhs),
+                format!("mov DWORD[{}], {}", dest_label, lhs),
+                format!("add DWORD[{}], {}", dest_label, rhs),
             ]),
             (Value(NumberLiteral(num)), Value(Variable(var)))
             | (Value(Variable(var)), Value(NumberLiteral(num))) => {
                 let var_label = symbol_table.get_number_label(&var)?;
                 Ok(vec![
-                    format!(
-                        "            mov     DWORD[{}], DWORD[{}]",
-                        dest_label, var_label
-                    ),
-                    format!("            add     DWORD[{}], {}", dest_label, num),
+                    format!("mov DWORD[{}], DWORD[{}]", dest_label, var_label),
+                    format!("add DWORD[{}], {}", dest_label, num),
                 ])
             }
             unexpected => todo!("Unimplemented expression {:?}", unexpected),
@@ -93,18 +113,71 @@ mod test {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
 
+    fn flatten_lines(input: &str) -> Vec<String> {
+        input
+            .lines()
+            .map(|line| line.split_whitespace().collect::<Vec<&str>>().join(" "))
+            .collect()
+    }
+
     #[test]
-    fn can_process_minimal_program() {
-        let program = Program::new("program".to_string());
-        let asm = generate_asm(program).unwrap();
-        let expected = indoc! {"
+    fn flatten_lines_works() {
+        let output = flatten_lines(indoc! {"
             global main
+                        section .bss
+            _n_0_num1   resq 1
                         section .text
             main:
                         mov     rax, 60
                         xor     rdi, rdi
                         syscall
-            "};
+            "});
+        let expected = vec![
+            "global main".to_string(),
+            "section .bss".into(),
+            "_n_0_num1 resq 1".into(),
+            "section .text".into(),
+            "main:".into(),
+            "mov rax, 60".into(),
+            "xor rdi, rdi".into(),
+            "syscall".into(),
+        ];
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn can_process_minimal_program() {
+        let program = Program::new("program".to_string());
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
+            global main
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            main:
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
         assert_eq!(asm, expected);
     }
 
@@ -112,17 +185,38 @@ mod test {
     fn can_process_program_with_uninitialized_num() {
         let mut program = Program::new("program".to_string());
         program.add_statement(NumDeclaration("num1".to_string(), None));
-        let asm = generate_asm(program).unwrap();
-        let expected = indoc! {"
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
             global main
-                        section .bss
-            _n_0_num1   resd 1
-                        section .text
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .bss
+            _n_0_num1       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
             main:
-                        mov     rax, 60
-                        xor     rdi, rdi
-                        syscall
-            "};
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
         assert_eq!(asm, expected);
     }
 
@@ -131,18 +225,39 @@ mod test {
         let mut program = Program::new("".to_string());
         program.add_statement(NumDeclaration("num1".to_string(), None));
         program.add_statement(Assignment("num1".to_string(), Value(NumberLiteral(10))));
-        let asm = generate_asm(program).unwrap();
-        let expected = indoc! {"
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
             global main
-                        section .bss
-            _n_0_num1   resd 1
-                        section .text
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .bss
+            _n_0_num1       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
             main:
-                        mov     DWORD[_n_0_num1], 10
-                        mov     rax, 60
-                        xor     rdi, rdi
-                        syscall
-            "};
+                            mov     DWORD[_n_0_num1], 10
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
         assert_eq!(asm, expected);
     }
 
@@ -153,17 +268,38 @@ mod test {
             "num1".to_string(),
             Some(Value(NumberLiteral(3))),
         ));
-        let asm = generate_asm(program).unwrap();
-        let expected = indoc! {"
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
             global main
-                        section .data
-            _n_0_num1   dd 3
-                        section .text
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .data
+            _n_0_num1       dq 3
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
             main:
-                        mov     rax, 60
-                        xor     rdi, rdi
-                        syscall
-            "};
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
         assert_eq!(asm, expected);
     }
 
@@ -179,19 +315,40 @@ mod test {
                 Box::new(Value(NumberLiteral(10))),
             ),
         ));
-        let asm = generate_asm(program).unwrap();
-        let expected = indoc! {"
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
             global main
-                        section .bss
-            _n_0_num1   resd 1
-                        section .text
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .bss
+            _n_0_num1       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
             main:
-                        mov     DWORD[_n_0_num1], 10
-                        add     DWORD[_n_0_num1], 10
-                        mov     rax, 60
-                        xor     rdi, rdi
-                        syscall
-            "};
+                            mov     DWORD[_n_0_num1], 10
+                            add     DWORD[_n_0_num1], 10
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
         assert_eq!(asm, expected);
     }
 
@@ -211,21 +368,42 @@ mod test {
                 Box::new(Value(Variable("num1".to_string()))),
             ),
         ));
-        let asm = generate_asm(program).unwrap();
-        let expected = indoc! {"
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
             global main
-                        section .data
-            _n_0_num1   dd 3
-                        section .bss
-            _n_1_num2   resd 1
-                        section .text
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .data
+            _n_0_num1       dq 3
+                            section .bss
+            _n_1_num2       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
             main:
-                        mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
-                        add     DWORD[_n_1_num2], 10
-                        mov     rax, 60
-                        xor     rdi, rdi
-                        syscall
-            "};
+                            mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
+                            add     DWORD[_n_1_num2], 10
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
         assert_eq!(asm, expected);
     }
 
@@ -244,21 +422,86 @@ mod test {
                 Box::new(Value(NumberLiteral(10))),
             )),
         ));
-        let asm = generate_asm(program).unwrap();
-        let expected = indoc! {"
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
             global main
-                        section .data
-            _n_0_num1   dd 3
-                        section .bss
-            _n_1_num2   resd 1
-                        section .text
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .data
+            _n_0_num1       dq 3
+                            section .bss
+            _n_1_num2       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
             main:
-                        mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
-                        add     DWORD[_n_1_num2], 10
-                        mov     rax, 60
-                        xor     rdi, rdi
-                        syscall
-            "};
+                            mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
+                            add     DWORD[_n_1_num2], 10
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    fn can_process_program_with_write_statement() {
+        let mut program = Program::new("".to_string());
+        program.add_statement(NumDeclaration("num1".to_string(), None));
+        program.add_statement(Assignment("num1".to_string(), Value(NumberLiteral(10))));
+        program.add_statement(Write(Value(Variable("num1".to_string()))));
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
+            global main
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+                            section .bss
+            _n_0_num1       resq 1
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            main:
+                            mov     DWORD[_n_0_num1], 10
+                            mov     rax, [qword _n_0_num1]
+                            call    printInt
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
         assert_eq!(asm, expected);
     }
 }
