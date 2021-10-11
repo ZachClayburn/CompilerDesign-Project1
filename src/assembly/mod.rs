@@ -31,7 +31,9 @@ pub fn generate_asm(program: Program) -> Result<String> {
     asm_file.text.push("pop rsp".into());
     asm_file.text.push("ret".into());
 
-    asm_file.rodata.push(r#"numberPrinter db "%d",0x0d,0x0a,0"#.into());
+    asm_file
+        .rodata
+        .push(r#"numberPrinter db "%d",0x0d,0x0a,0"#.into());
 
     asm_file.text.push("main:".into());
     let mut symbol_table = SymbolTable::new();
@@ -87,23 +89,23 @@ fn generate_expression_assignment_assembly(
     expression: Expression,
 ) -> Result<Vec<String>> {
     match expression {
-        Value(NumberLiteral(value)) => Ok(vec![format!("mov DWORD[{}], {}", dest_label, value)]),
+        Value(NumberLiteral(value)) => Ok(vec![format!("mov [qword {}], {}", dest_label, value)]),
         Operator(l_exp, Add, r_exp) => match (*l_exp, *r_exp) {
             (Value(NumberLiteral(lhs)), Value(NumberLiteral(rhs))) => Ok(vec![
-                format!("mov DWORD[{}], {}", dest_label, lhs),
-                format!("add DWORD[{}], {}", dest_label, rhs),
+                format!("mov [qword {}], {}", dest_label, lhs),
+                format!("add [qword {}], {}", dest_label, rhs),
             ]),
             (Value(NumberLiteral(num)), Value(Variable(var)))
             | (Value(Variable(var)), Value(NumberLiteral(num))) => {
                 let var_label = symbol_table.get_number_label(&var)?;
                 Ok(vec![
-                    format!("mov DWORD[{}], DWORD[{}]", dest_label, var_label),
-                    format!("add DWORD[{}], {}", dest_label, num),
+                    format!("mov [qword {}], [qword {}]", dest_label, var_label),
+                    format!("add [qword {}], {}", dest_label, num),
                 ])
             }
-            unexpected => todo!("Unimplemented expression {:?}", unexpected),
+            unexpected => todo!("{:?}", unexpected),
         },
-        unexpected => todo!("Unimplemented expression {:?}", unexpected),
+        unexpected => todo!("{:?}", unexpected),
     }
 }
 
@@ -253,7 +255,7 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     DWORD[_n_0_num1], 10
+                            mov     [qword _n_0_num1], 10
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -343,8 +345,8 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     DWORD[_n_0_num1], 10
-                            add     DWORD[_n_0_num1], 10
+                            mov     [qword _n_0_num1], 10
+                            add     [qword _n_0_num1], 10
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -398,8 +400,8 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
-                            add     DWORD[_n_1_num2], 10
+                            mov     [qword _n_1_num2], [qword _n_0_num1]
+                            add     [qword _n_1_num2], 10
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -452,8 +454,8 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     DWORD[_n_1_num2], DWORD[_n_0_num1]
-                            add     DWORD[_n_1_num2], 10
+                            mov     [qword _n_1_num2], [qword _n_0_num1]
+                            add     [qword _n_1_num2], 10
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
@@ -495,7 +497,7 @@ mod test {
                             pop     rsp
                             ret
             main:
-                            mov     DWORD[_n_0_num1], 10
+                            mov     [qword _n_0_num1], 10
                             mov     rax, [qword _n_0_num1]
                             call    printInt
                             mov     rax, 60
