@@ -31,9 +31,29 @@ pub fn generate_asm(program: Program) -> Result<String> {
     asm_file.text.push("pop rsp".into());
     asm_file.text.push("ret".into());
 
+    // Add printString block
+    asm_file.text.push("printString:".into());
+    asm_file.text.push("push rsp".into());
+    asm_file.text.push("push rbp".into());
+    asm_file.text.push("push rax".into());
+    asm_file.text.push("push rcx".into());
+    asm_file.text.push("mov rdi, stringPrinter".into());
+    asm_file.text.push("mov rsi, rax".into());
+    asm_file.text.push("xor rax, rax".into());
+    asm_file.text.push("call [rel printf wrt ..got]".into());
+    asm_file.text.push("pop rcx".into());
+    asm_file.text.push("pop rax".into());
+    asm_file.text.push("pop rbp".into());
+    asm_file.text.push("pop rsp".into());
+    asm_file.text.push("ret".into());
+
     asm_file
         .rodata
         .push(r#"numberPrinter db "%d",0x0d,0x0a,0"#.into());
+
+    asm_file
+        .rodata
+        .push(r#"stringPrinter db "%s",0x0d,0x0a,0"#.into());
 
     asm_file.text.push("main:".into());
     let mut symbol_table = SymbolTable::new();
@@ -71,6 +91,14 @@ pub fn generate_asm(program: Program) -> Result<String> {
                     let label = symbol_table.get_number_label(&var_name)?;
                     asm_file.text.push(format!("mov rax, [qword {}]", label));
                     asm_file.text.push("call printInt".into());
+                }
+                Value(StringLiteral(string)) => {
+                    let label = symbol_table.add_anonymous_string()?;
+                    asm_file
+                        .rodata
+                        .push(format!(r#"{} db "{}""#, label, string));
+                    asm_file.text.push(format!("mov rax, {}", label));
+                    asm_file.text.push("call printString".into());
                 }
                 unexpected => todo!("{:?}", unexpected),
             },
@@ -219,6 +247,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .text
             printInt:
                             push    rsp
@@ -226,6 +255,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -256,6 +299,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .bss
             _n_0_num1       resq 1
                             section .text
@@ -265,6 +309,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -296,6 +354,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .bss
             _n_0_num1       resq 1
                             section .text
@@ -305,6 +364,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -339,6 +412,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .data
             _n_0_num1       dq 3
                             section .text
@@ -348,6 +422,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -386,6 +474,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .bss
             _n_0_num1       resq 1
                             section .text
@@ -395,6 +484,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -440,6 +543,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .data
             _n_0_num1       dq 3
                             section .bss
@@ -451,6 +555,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -495,6 +613,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .data
             _n_0_num1       dq 3
                             section .bss
@@ -506,6 +625,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -541,6 +674,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .bss
             _n_0_num1       resq 1
                             section .text
@@ -550,6 +684,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -594,6 +742,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .data
             _n_0_num1       dq 3
                             section .bss
@@ -605,6 +754,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -649,6 +812,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .data
             _n_0_num1       dq 3
                             section .bss
@@ -660,6 +824,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -704,6 +882,7 @@ mod test {
             extern printf
                             section .rodata
             numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
                             section .data
             _n_0_num1       dq 3
                             section .bss
@@ -715,6 +894,20 @@ mod test {
                             push    rax
                             push    rcx
                             mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
                             mov     rsi, rax
                             xor     rax, rax
                             call    [rel printf wrt ..got]
@@ -736,6 +929,61 @@ mod test {
                             jmp     .L1
             .L2:
                             mov     [qword _n_1_num2], rax
+                            mov     rax, 60
+                            xor     rdi, rdi
+                            syscall
+            "#});
+        assert_eq!(asm, expected);
+    }
+
+    #[test]
+    fn can_process_string_write() {
+        let mut program = Program::new("program".to_string());
+        program.add_statement(Write(Value(StringLiteral("Hello, World!".to_string()))));
+        let asm: Vec<String> = generate_asm(program)
+            .unwrap()
+            .lines()
+            .map(|x| x.to_string())
+            .collect();
+        let expected = flatten_lines(indoc! {r#"
+            global main
+            extern printf
+                            section .rodata
+            numberPrinter   db "%d",0x0d,0x0a,0
+            stringPrinter   db "%s",0x0d,0x0a,0
+            _s_0_           db "Hello, World!"
+                            section .text
+            printInt:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, numberPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            printString:
+                            push    rsp
+                            push    rbp
+                            push    rax
+                            push    rcx
+                            mov     rdi, stringPrinter
+                            mov     rsi, rax
+                            xor     rax, rax
+                            call    [rel printf wrt ..got]
+                            pop     rcx
+                            pop     rax
+                            pop     rbp
+                            pop     rsp
+                            ret
+            main:
+                            mov     rax, _s_0_
+                            call    printString
                             mov     rax, 60
                             xor     rdi, rdi
                             syscall
